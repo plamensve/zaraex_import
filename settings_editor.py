@@ -10,7 +10,7 @@ FIELDS = {
     "transport_companies": [("name", "Фирма"), ("eik", "ЕИК")],
     "vehicles": [("registration", "МПС"), ("company_eik", "Транспортна фирма")],
     "drivers": [("name", "Име"), ("egn", "ЕГН"), ("company_eik", "Транспортна фирма")],
-    "bases": [("name", "Петролна база"), ("eik", "ЕИК")],
+    "bases": [("name", "Петролна база"), ("eik", "ЕИК"), ("link_code", "Код за връзка")],
 }
 
 

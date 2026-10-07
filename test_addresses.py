@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 from unittest.mock import Mock, patch
 
 from addresses import LOCATIONS, validate_address, write_base_address, format_address
@@ -60,6 +61,7 @@ class AddressTests(unittest.TestCase):
     def test_export_populates_exact_reference_columns(self):
         subject = self.record_subject()
         subject.store.data["bases"][0]["name"] = "Петрол АД"
+        subject.store.data["bases"][0]["link_code"] = "0026"
         subject.store.data["bases"][0]["address"]["street"] = "ул. Васил Априлов"
         subject.store.data["bases"][0]["address"]["number"] = "43"
         ZaraExApp.add_record(subject)
@@ -72,8 +74,10 @@ class AddressTests(unittest.TestCase):
         sheet.write.assert_any_call(1, 7, "Петрол АД", "@")
         sheet.write.assert_any_call(0, 63, "Обект дост. ЗараЕкс", "@")
         sheet.write.assert_any_call(1, 63, "Петрол АД", "@")
+        sheet.write.assert_any_call(0, 64, "Код за връзка", "@")
+        sheet.write.assert_any_call(1, 64, "0026", "@")
         populated_columns = {call.args[1] for call in sheet.write.call_args_list if call.args[0] == 1 and call.args[2] not in (None, "")}
-        expected_columns = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 23, 24, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 41, 44, 47, 51, 53, 55, 61, 62, 63}
+        expected_columns = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 23, 24, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 41, 44, 47, 51, 53, 55, 61, 62, 63, 64}
         self.assertEqual(populated_columns, expected_columns)
         self.assertTrue({17, 18, 28, 38}.isdisjoint(populated_columns))
         workbook.save.assert_called_once_with("test.xls")
@@ -85,6 +89,22 @@ class AddressTests(unittest.TestCase):
             ZaraExApp.add_record(subject)
         error.assert_called_once()
         self.assertEqual(subject.records, [{"ukn": "old"}])
+
+    def test_base_link_code_survives_edit_and_restart(self):
+        data = {"bases": [{"name": "Base", "eik": "001", "address": self.address}]}
+        updated = prepare_settings_edit(data, "bases", 0, {"link_code": "0008"})
+        with tempfile.TemporaryDirectory() as directory, patch("app.__file__", directory + "/app.py"):
+            store = DataStore()
+            store.data["bases"] = [updated]
+            store.save()
+            self.assertEqual(DataStore().data["bases"][0]["link_code"], "0008")
+
+    def test_record_link_code_is_snapshot_of_selected_base(self):
+        subject = self.record_subject()
+        subject.store.data["bases"][0]["link_code"] = "0026"
+        ZaraExApp.add_record(subject)
+        subject.store.data["bases"][0]["link_code"] = "0005"
+        self.assertEqual(subject.records[0]["base_link_code"], "0026")
 
 
 if __name__ == "__main__":

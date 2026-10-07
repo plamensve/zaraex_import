@@ -767,12 +767,15 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         self.b_name = tk.StringVar()
         self.b_eik = tk.StringVar()
+        self.b_link_code = tk.StringVar()
 
         self.add_entry(form, "Петролна база", self.b_name, 0, 0, 40)
         self.add_entry(form, "ЕИК", self.b_eik, 0, 2, 18)
 
+        self.add_entry(form, "Код за връзка", self.b_link_code, 1, 0, 18)
+
         self.base_address_fields = AddressFields(form)
-        self.base_address_fields.grid(row=1, column=0, columnspan=5, sticky="ew", pady=(8, 0))
+        self.base_address_fields.grid(row=2, column=0, columnspan=5, sticky="ew", pady=(8, 0))
 
         ttk.Button(
             form,
@@ -785,6 +788,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             (
                 ("name", "Петролна база", 320),
                 ("eik", "ЕИК", 140),
+                ("link_code", "Код за връзка", 140),
                 ("address", "Адрес", 400),
                 ("city_code", "Код на населено място", 180),
             )
@@ -985,11 +989,13 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "name": name,
             "eik": eik,
             "address": address,
+            "link_code": self.b_link_code.get().strip(),
         })
 
         self.save_and_refresh()
         self.b_name.set("")
         self.b_eik.set("")
+        self.b_link_code.set("")
         self.base_address_fields.clear()
 
     def delete_settings_item(self, collection, tree):
@@ -1113,7 +1119,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 "",
                 "end",
                 iid=str(i),
-                values=(b.get("name", ""), b.get("eik", ""), format_address(b.get("address")), b.get("address", {}).get("city_code", ""))
+                values=(b.get("name", ""), b.get("eik", ""), b.get("link_code", ""), format_address(b.get("address")), b.get("address", {}).get("city_code", ""))
             )
 
         companies = [
@@ -1436,6 +1442,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
             "base_name": base["name"],
             "base_eik": base["eik"],
+            "base_link_code": base.get("link_code", ""),
             "base_address": base_address,
         }
 
@@ -1547,9 +1554,12 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
             supplier_object_column = len(EADD_HEADERS)
             self.write_text(eadd, 0, supplier_object_column, "Обект дост. ЗараЕкс", text_style)
+            base_link_column = supplier_object_column + 1
+            self.write_text(eadd, 0, base_link_column, "Код за връзка", text_style)
 
             for row, r in enumerate(self.records, start=1):
                 self.write_text(eadd, row, supplier_object_column, r["base_name"], text_style)
+                self.write_text(eadd, row, base_link_column, r.get("base_link_code", ""), text_style)
                 self.write_text(eadd, row, 0, r["ukn"], text_style)
                 self.write_text(eadd, row, 1, r["add_no"], text_style)
                 eadd.write(row, 2, r["date"], date_style)

@@ -41,7 +41,7 @@ class AddressTests(unittest.TestCase):
             validate_address(dict(self.address, street=""))
 
     def test_base_edit_includes_validated_address(self):
-        data = {"bases": [{"name": "Base", "eik": "001"}]}
+        data = {"bases": [{"name": "Base", "eik": "001", "delivery_object": "ПСБ РУСЕ"}]}
         updated = prepare_settings_edit(data, "bases", 0, {"address": self.address})
         self.assertEqual(updated["address"]["city_code"], "07603")
         self.assertIn("Петролна база 12", format_address(updated["address"]))

@@ -10,7 +10,6 @@ from excel_export import ExcelWorkbook
 from product_catalog import CATALOG_VERSION, load_catalog, migrate_catalog
 from settings_editor import SettingsEditorMixin
 from addresses import AddressFields, validate_address, format_address, write_base_address
-from delivery_objects import DELIVERY_OBJECTS, resolve_delivery_object, write_delivery_object
 
 
 APP_TITLE = "ZaraEx Import Generator"
@@ -772,17 +771,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.add_entry(form, "Петролна база", self.b_name, 0, 0, 40)
         self.add_entry(form, "ЕИК", self.b_eik, 0, 2, 18)
 
-        self.b_delivery_object = tk.StringVar()
-        self.b_delivery_code = tk.StringVar()
-        ttk.Label(form, text="Обект дост. ZaraEx").grid(row=1, column=0, sticky="w", padx=5, pady=8)
-        object_combo = ttk.Combobox(form, textvariable=self.b_delivery_object, values=list(DELIVERY_OBJECTS), state="readonly", width=40)
-        object_combo.grid(row=1, column=1, sticky="ew", padx=(0, 15), pady=8)
-        ttk.Label(form, text="Код за връзка").grid(row=1, column=2, sticky="w", padx=5, pady=8)
-        ttk.Entry(form, textvariable=self.b_delivery_code, state="readonly", width=18).grid(row=1, column=3, sticky="ew", pady=8)
-        self.b_delivery_object.trace_add("write", lambda *_: self.b_delivery_code.set(DELIVERY_OBJECTS.get(self.b_delivery_object.get(), "")))
-
         self.base_address_fields = AddressFields(form)
-        self.base_address_fields.grid(row=2, column=0, columnspan=5, sticky="ew", pady=(8, 0))
+        self.base_address_fields.grid(row=1, column=0, columnspan=5, sticky="ew", pady=(8, 0))
 
         ttk.Button(
             form,
@@ -796,9 +786,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 ("name", "Петролна база", 320),
                 ("eik", "ЕИК", 140),
                 ("address", "Адрес", 400),
-                ("city_code", "Код на населено място", 150),
-                ("delivery_object", "Обект дост. ZaraEx", 300),
-                ("delivery_code", "Код за връзка", 100),
+                ("city_code", "Код на населено място", 180),
             )
         )
 
@@ -987,7 +975,6 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         try:
             address = self.base_address_fields.get_address()
-            delivery_object, delivery_code = resolve_delivery_object(self.b_delivery_object.get())
         except ValueError as exc:
             messagebox.showerror("Невалиден адрес", str(exc))
             return
@@ -998,15 +985,12 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "name": name,
             "eik": eik,
             "address": address,
-            "delivery_object": delivery_object,
-            "delivery_object_code": delivery_code,
         })
 
         self.save_and_refresh()
         self.b_name.set("")
         self.b_eik.set("")
         self.base_address_fields.clear()
-        self.b_delivery_object.set("")
 
     def delete_settings_item(self, collection, tree):
         selected = tree.selection()
@@ -1129,7 +1113,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 "",
                 "end",
                 iid=str(i),
-                values=(b.get("name", ""), b.get("eik", ""), format_address(b.get("address")), b.get("address", {}).get("city_code", ""), b.get("delivery_object", ""), b.get("delivery_object_code", ""))
+                values=(b.get("name", ""), b.get("eik", ""), format_address(b.get("address")), b.get("address", {}).get("city_code", ""))
             )
 
         companies = [
@@ -1422,9 +1406,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         try:
             base_address = validate_address(base.get("address", {}))
-            delivery_object, delivery_code = resolve_delivery_object(base.get("delivery_object", ""))
         except ValueError as exc:
-            messagebox.showerror("Непълни данни на базата", "Допълни адреса и обекта ZaraEx в Настройки → Петролни бази → Редактирай избраното.\n\n" + str(exc))
+            messagebox.showerror("Липсва адрес на базата", "Допълни адреса в Настройки → Петролни бази → Редактирай избраното.\n\n" + str(exc))
             return
 
         record = {
@@ -1454,8 +1437,6 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "base_name": base["name"],
             "base_eik": base["eik"],
             "base_address": base_address,
-            "delivery_object": delivery_object,
-            "delivery_object_code": delivery_code,
         }
 
         if self.editing_record_index is None:
@@ -1659,7 +1640,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     text_style
                 )
 
-                write_delivery_object(eadd, row, r["delivery_object"])
+                self.write_text(eadd, row, 29, "99", text_style)
 
                 write_base_address(eadd, row, r["base_address"])
 

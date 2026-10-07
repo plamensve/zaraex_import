@@ -3,7 +3,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from addresses import AddressFields, validate_address
-from delivery_objects import DELIVERY_OBJECTS, resolve_delivery_object
 
 
 FIELDS = {
@@ -11,7 +10,7 @@ FIELDS = {
     "transport_companies": [("name", "Фирма"), ("eik", "ЕИК")],
     "vehicles": [("registration", "МПС"), ("company_eik", "Транспортна фирма")],
     "drivers": [("name", "Име"), ("egn", "ЕГН"), ("company_eik", "Транспортна фирма")],
-    "bases": [("name", "Петролна база"), ("eik", "ЕИК"), ("delivery_object", "Обект дост. ZaraEx")],
+    "bases": [("name", "Петролна база"), ("eik", "ЕИК")],
 }
 
 
@@ -35,7 +34,6 @@ def prepare_settings_edit(data, collection, index, changes):
         raise ValueError("Избери съществуваща транспортна фирма.")
     if collection == "bases":
         updated["address"] = validate_address(updated.get("address", {}))
-        updated["delivery_object"], updated["delivery_object_code"] = resolve_delivery_object(updated.get("delivery_object", ""))
     others = [item for i, item in enumerate(data[collection]) if i != index]
     unique_keys = {
         "products": ("name", "link_code"),
@@ -94,8 +92,6 @@ class SettingsEditorMixin:
             ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", padx=(0, 12), pady=6)
             if key == "company_eik":
                 entry = ttk.Combobox(form, textvariable=var, values=list(companies), state="readonly", width=65)
-            elif key == "delivery_object":
-                entry = ttk.Combobox(form, textvariable=var, values=list(DELIVERY_OBJECTS), state="readonly", width=65)
             else:
                 entry = ttk.Entry(form, textvariable=var, width=68)
             entry.grid(row=row, column=1, sticky="ew", pady=6)

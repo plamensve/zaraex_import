@@ -28,7 +28,7 @@ class EditingTests(unittest.TestCase):
             "transport_companies": [{"name": "Transport", "eik": "00123"}],
             "vehicles": [{"registration": "Truck", "company_eik": "00123"}],
             "drivers": [{"name": "Driver", "egn": "0012345678", "company_eik": "00123"}],
-            "bases": [{"name": "Base", "eik": "00987", "delivery_object": "ПСБ РУСЕ", "delivery_object_code": "0026", "address": {"region": "Русе", "region_code": "RSE", "municipality": "Бяла (Русе)", "municipality_code": "RSE04", "city": "гр.Бяла (Русе)", "city_code": "07603", "street": "Петролна база", "number": "12"}}],
+            "bases": [{"name": "Base", "eik": "00987", "address": {"region": "Русе", "region_code": "RSE", "municipality": "Бяла (Русе)", "municipality_code": "RSE04", "city": "гр.Бяла (Русе)", "city_code": "07603", "street": "Петролна база", "number": "12"}}],
         }
 
     def test_company_eik_edit_retains_relationships(self):

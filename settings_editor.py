@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from addresses import AddressFields, validate_address
 
 
 FIELDS = {
@@ -31,11 +32,13 @@ def prepare_settings_edit(data, collection, index, changes):
         updated["helper_bj"] = int(helper) if helper not in (None, "") else None
     if "company_eik" in updated and not any(c["eik"] == updated["company_eik"] for c in data["transport_companies"]):
         raise ValueError("Избери съществуваща транспортна фирма.")
+    if collection == "bases":
+        updated["address"] = validate_address(updated.get("address", {}))
     others = [item for i, item in enumerate(data[collection]) if i != index]
     unique_keys = {
         "products": ("name", "link_code"),
         "transport_companies": ("name", "eik"),
-        "bases": ("name", "eik"),
+        "bases": ("name",),
     }.get(collection, ())
     if any(updated.get(key) and any(item.get(key) == updated[key] for item in others) for key in unique_keys):
         raise ValueError("Вече има запис със същото име или код.")
@@ -95,11 +98,18 @@ class SettingsEditorMixin:
             if row == 0:
                 entry.focus_set()
 
+        address_fields = None
+        if collection == "bases":
+            address_fields = AddressFields(form, original.get("address"))
+            address_fields.grid(row=len(variables), column=0, columnspan=2, sticky="ew", pady=(8, 0))
+
         def save():
             changes = {key: var.get().strip() for key, var in variables.items()}
             if "company_eik" in changes:
                 changes["company_eik"] = companies.get(changes["company_eik"], "")
             try:
+                if address_fields is not None:
+                    changes["address"] = address_fields.get_address()
                 updated = prepare_settings_edit(self.store.data, collection, index, changes)
             except ValueError as exc:
                 messagebox.showerror("Невалидни данни", str(exc), parent=dialog)
@@ -110,7 +120,7 @@ class SettingsEditorMixin:
             dialog.destroy()
 
         buttons = ttk.Frame(form)
-        buttons.grid(row=len(variables), column=0, columnspan=2, sticky="e", pady=(14, 0))
+        buttons.grid(row=len(variables) + (1 if address_fields is not None else 0), column=0, columnspan=2, sticky="e", pady=(14, 0))
         ttk.Button(buttons, text="Отказ", command=dialog.destroy).pack(side="left", padx=8)
         ttk.Button(buttons, text="Запази промените", command=save).pack(side="left")
         dialog.bind("<Escape>", lambda event: dialog.destroy())

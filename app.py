@@ -9,6 +9,7 @@ import math
 from excel_export import ExcelWorkbook
 from product_catalog import CATALOG_VERSION, load_catalog, migrate_catalog
 from settings_editor import SettingsEditorMixin
+from addresses import AddressFields, validate_address, format_address, write_base_address
 
 
 APP_TITLE = "ZaraEx Import Generator"
@@ -770,6 +771,9 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.add_entry(form, "Петролна база", self.b_name, 0, 0, 40)
         self.add_entry(form, "ЕИК", self.b_eik, 0, 2, 18)
 
+        self.base_address_fields = AddressFields(form)
+        self.base_address_fields.grid(row=1, column=0, columnspan=5, sticky="ew", pady=(8, 0))
+
         ttk.Button(
             form,
             text="Добави база",
@@ -779,8 +783,10 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.bases_tree = self.make_settings_tree(
             frame,
             (
-                ("name", "Петролна база", 520),
-                ("eik", "ЕИК", 180),
+                ("name", "Петролна база", 320),
+                ("eik", "ЕИК", 140),
+                ("address", "Адрес", 400),
+                ("city_code", "Код на населено място", 180),
             )
         )
 
@@ -967,14 +973,24 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             )
             return
 
+        try:
+            address = self.base_address_fields.get_address()
+        except ValueError as exc:
+            messagebox.showerror("Невалиден адрес", str(exc))
+            return
+        if any(base.get("name") == name for base in self.store.data["bases"]):
+            messagebox.showerror("Грешка", "Вече има база с това име.")
+            return
         self.store.data["bases"].append({
             "name": name,
             "eik": eik,
+            "address": address,
         })
 
         self.save_and_refresh()
         self.b_name.set("")
         self.b_eik.set("")
+        self.base_address_fields.clear()
 
     def delete_settings_item(self, collection, tree):
         selected = tree.selection()
@@ -1097,7 +1113,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 "",
                 "end",
                 iid=str(i),
-                values=(b.get("name", ""), b.get("eik", ""))
+                values=(b.get("name", ""), b.get("eik", ""), format_address(b.get("address")), b.get("address", {}).get("city_code", ""))
             )
 
         companies = [
@@ -1243,6 +1259,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             parts.append(
                 f"ЕИК база: {base.get('eik', '')}"
             )
+            if base.get("address"):
+                parts.append(format_address(base["address"]))
 
         self.selection_info_var.set("   |   ".join(parts))
 
@@ -1386,6 +1404,12 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             )
             return
 
+        try:
+            base_address = validate_address(base.get("address", {}))
+        except ValueError as exc:
+            messagebox.showerror("Липсва адрес на базата", "Допълни адреса в Настройки → Петролни бази → Редактирай избраното.\n\n" + str(exc))
+            return
+
         record = {
             "date": date_value,
             "ukn": ukn,
@@ -1412,6 +1436,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
             "base_name": base["name"],
             "base_eik": base["eik"],
+            "base_address": base_address,
         }
 
         if self.editing_record_index is None:
@@ -1617,12 +1642,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
                 self.write_text(eadd, row, 29, "99", text_style)
 
-                self.write_text(eadd, row, 30, "СОФИЯ (SOF)", text_style)
-                self.write_text(eadd, row, 31, "SOF", text_style)
-                self.write_text(eadd, row, 32, "СТОЛИЧНА", text_style)
-                self.write_text(eadd, row, 33, "SOF46", text_style)
-                self.write_text(eadd, row, 34, "СОФИЯ", text_style)
-                self.write_text(eadd, row, 35, "68134", text_style)
+                write_base_address(eadd, row, r["base_address"])
 
                 # Object EIK / issuer follows selected petroleum base.
                 self.write_text(

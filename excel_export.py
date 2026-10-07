@@ -12,6 +12,12 @@ class ExcelSheet:
         cell.NumberFormat = number_format
         cell.Value = value
 
+    def fill_empty_with_headers(self, row, headers):
+        """Diagnostic export: label only empty cells with a named header."""
+        for column, header in enumerate(headers):
+            if header and self.sheet.Cells(row + 1, column + 1).Value in (None, ""):
+                self.write(row, column, header, "@")
+
 
 class ExcelWorkbook:
     def __init__(self):

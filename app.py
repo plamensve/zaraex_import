@@ -1704,6 +1704,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 # Existing helper value from the current working model.
                 eadd.write(row, 62, 19604, integer_style)
 
+                eadd.fill_empty_with_headers(row, EADD_HEADERS)
+
             workbook.save(output)
             workbook.close()
             workbook = None

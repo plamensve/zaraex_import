@@ -9,7 +9,7 @@ import math
 from excel_export import ExcelWorkbook
 from product_catalog import CATALOG_VERSION, load_catalog, migrate_catalog
 from settings_editor import SettingsEditorMixin
-from addresses import AddressFields, validate_address, format_address, write_base_address
+from addresses import AddressFields, validate_address, format_address
 
 
 APP_TITLE = "ZaraEx Import Generator"
@@ -1599,13 +1599,6 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 self.write_text(eadd, row, 13, "СОФИЯ", text_style)
                 self.write_text(eadd, row, 14, "68134", text_style)
 
-                delivery_address = " ".join(filter(None, (
-                    r["base_address"].get("street", ""),
-                    r["base_address"].get("number", ""),
-                )))
-                self.write_text(eadd, row, 17, delivery_address, text_style)
-                self.write_text(eadd, row, 18, r["base_name"], text_style)
-
                 # Transport company
                 self.write_text(
                     eadd, row, 20,
@@ -1647,10 +1640,11 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     text_style
                 )
 
-                self.write_text(eadd, row, 28, r["base_name"], text_style)
                 self.write_text(eadd, row, 29, "99", text_style)
 
-                write_base_address(eadd, row, r["base_address"])
+                address = r["base_address"]
+                for column, key in ((30, "region"), (31, "region_code"), (32, "municipality"), (33, "municipality_code"), (34, "city"), (35, "city_code")):
+                    self.write_text(eadd, row, column, address[key], text_style)
 
                 # Object EIK / issuer follows selected petroleum base.
                 self.write_text(

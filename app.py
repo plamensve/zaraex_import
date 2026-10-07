@@ -7,6 +7,7 @@ from datetime import datetime
 import math
 
 from excel_export import ExcelWorkbook
+from product_catalog import load_catalog, migrate_catalog
 
 
 APP_TITLE = "ZaraEx Import Generator"
@@ -26,22 +27,7 @@ DATA_FILE = "zaraex_data.json"
 # ============================================================
 
 DEFAULT_DATA = {
-    "products": [
-        {
-            "name": "ГОРИВО ЗА ДИЗЕЛОВИ ДВИГАТЕЛИ с мин. 6% обемни БД, вкл. 2 % об. БД от ново пок.",
-            "link_code": "",
-            "kn_code": "27102011",
-            "fuel_kind": "Газьол - немаркиран",
-            "helper_bj": 31,
-        },
-        {
-            "name": "Гориво за извън пътна техника и трактори",
-            "link_code": "",
-            "kn_code": "27101944",
-            "fuel_kind": "Газьол - немаркиран",
-            "helper_bj": 25,
-        },
-    ],
+    "products": load_catalog(),
     "transport_companies": [
         {
             "name": "СИ-ТРАНС БЪЛГАРИЯ ЕООД",
@@ -163,6 +149,9 @@ class DataStore:
             for key, default_value in DEFAULT_DATA.items():
                 data.setdefault(key, default_value)
 
+            if migrate_catalog(data):
+                with open(self.path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
             return data
         except Exception:
             return json.loads(json.dumps(DEFAULT_DATA, ensure_ascii=False))
@@ -1374,7 +1363,8 @@ class ZaraExApp(tk.Tk):
             messagebox.showerror(
                 "Липсва код за връзка",
                 "Избраният продукт няма зададен код за връзка.\n"
-                "Добави го в Настройки → Продукти."
+                "В изходната таблица някои кодове са празни. "
+                "Избери продукт с код или добави реалния код в Настройки → Продукти."
             )
             return
 

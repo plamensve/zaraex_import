@@ -1,0 +1,114 @@
+[
+  {
+    "catalog_code": "009",
+    "name": "ДИЗЕЛОВО ГОРИВО 10ppm E5",
+    "link_code": "42",
+    "kn_code": "27101944",
+    "fuel_kind": "Газьол - немаркиран",
+    "helper_bj": 42
+  },
+  {
+    "catalog_code": "010",
+    "name": "БИОДИЗЕЛ",
+    "link_code": "",
+    "kn_code": "38260010",
+    "fuel_kind": "Биодизел",
+    "helper_bj": null
+  },
+  {
+    "catalog_code": "011",
+    "name": "ДИЗЕЛОВО ГОРИВО 0.001% S мин. 6% FAME, вкл. 2% от ново поколение",
+    "link_code": "31",
+    "kn_code": "27102011",
+    "fuel_kind": "Газьол - немаркиран",
+    "helper_bj": 31
+  },
+  {
+    "catalog_code": "012",
+    "name": "ГОРИВО ЗА ИЗВЪНПЪТНА ТЕХНИКА И ТРАКТОРИ",
+    "link_code": "25",
+    "kn_code": "27101944",
+    "fuel_kind": "Газьол - немаркиран",
+    "helper_bj": 25
+  },
+  {
+    "catalog_code": "013",
+    "name": "ДИЗЕЛОВО ГОРИВО МАРКЕР",
+    "link_code": "",
+    "kn_code": "27101944",
+    "fuel_kind": "Газьол - маркиран",
+    "helper_bj": null
+  },
+  {
+    "catalog_code": "014",
+    "name": "ГАЗЬОЛ ЗА ПРОМИШЛЕНИ И КОМУНАЛНИ ЦЕЛИ",
+    "link_code": "24",
+    "kn_code": "27101944",
+    "fuel_kind": "Газьол - немаркиран",
+    "helper_bj": 24
+  },
+  {
+    "catalog_code": "015",
+    "name": "ДИЗЕЛОВО ГОРИВО F-54",
+    "link_code": "",
+    "kn_code": "27101944",
+    "fuel_kind": "Газьол - немаркиран",
+    "helper_bj": null
+  },
+  {
+    "catalog_code": "016",
+    "name": "ДИЗЕЛОВО ГОРИВО F-75",
+    "link_code": "",
+    "kn_code": "27101944",
+    "fuel_kind": "Газьол - маркиран",
+    "helper_bj": null
+  },
+  {
+    "catalog_code": "017",
+    "name": "АВТОМОБИЛЕН БЕНЗИН А-95Н с БИОКОМПОНЕНТ",
+    "link_code": "17",
+    "kn_code": "27101245",
+    "fuel_kind": "Бензин за двигатели със съдаржание на олово непревишаващо 0,013 гр./л. и с октаново число (RON) < 95",
+    "helper_bj": 17
+  },
+  {
+    "catalog_code": "018",
+    "name": "Дизелово гориво за извънпътна техника и трактори (СР)",
+    "link_code": "23",
+    "kn_code": "27101944",
+    "fuel_kind": "",
+    "helper_bj": 23
+  },
+  {
+    "catalog_code": "019",
+    "name": "Дизелово гориво (СР) с БИОКОМПОНЕНТ",
+    "link_code": "28",
+    "kn_code": "27102011",
+    "fuel_kind": "",
+    "helper_bj": 28
+  },
+  {
+    "catalog_code": "020",
+    "name": "Автомобилен бензин А-100Н с БИОКОМПОНЕНТ",
+    "link_code": "58",
+    "kn_code": "27101249",
+    "fuel_kind": "",
+    "helper_bj": 58
+  },
+  {
+    "catalog_code": "101",
+    "name": "МАРКЕР Корабни горива",
+    "link_code": "",
+    "kn_code": "",
+    "fuel_kind": "",
+    "helper_bj": null
+  },
+  {
+    "catalog_code": "102",
+    "name": "Транспортна услуга",
+    "link_code": "",
+    "kn_code": "",
+    "fuel_kind": "",
+    "helper_bj": null
+  }
+]

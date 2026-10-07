@@ -7,7 +7,8 @@ from datetime import datetime
 import math
 
 from excel_export import ExcelWorkbook
-from product_catalog import load_catalog, migrate_catalog
+from product_catalog import CATALOG_VERSION, load_catalog, migrate_catalog
+from settings_editor import SettingsEditorMixin
 
 
 APP_TITLE = "ZaraEx Import Generator"
@@ -27,6 +28,7 @@ DATA_FILE = "zaraex_data.json"
 # ============================================================
 
 DEFAULT_DATA = {
+    "product_catalog_version": CATALOG_VERSION,
     "products": load_catalog(),
     "transport_companies": [
         {
@@ -147,7 +149,8 @@ class DataStore:
 
             # ensure all collections exist
             for key, default_value in DEFAULT_DATA.items():
-                data.setdefault(key, default_value)
+                if key != "product_catalog_version":
+                    data.setdefault(key, default_value)
 
             if migrate_catalog(data):
                 with open(self.path, "w", encoding="utf-8") as f:
@@ -161,7 +164,7 @@ class DataStore:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
 
 
-class ZaraExApp(tk.Tk):
+class ZaraExApp(SettingsEditorMixin, tk.Tk):
     def __init__(self):
         super().__init__()
 
@@ -171,6 +174,7 @@ class ZaraExApp(tk.Tk):
 
         self.store = DataStore()
         self.records = []
+        self.editing_record_index = None
 
         self.setup_styles()
         self.build_ui()
@@ -341,12 +345,13 @@ class ZaraExApp(tk.Tk):
             sticky="ew", padx=(0, 15), pady=8
         )
 
-        ttk.Button(
+        self.record_save_button = ttk.Button(
             form,
             text="Добави товарене",
             style="Primary.TButton",
             command=self.add_record
-        ).grid(
+        )
+        self.record_save_button.grid(
             row=2, column=8, columnspan=2,
             sticky="e", padx=10, pady=8
         )
@@ -476,8 +481,16 @@ class ZaraExApp(tk.Tk):
         table_frame.rowconfigure(0, weight=1)
         table_frame.columnconfigure(0, weight=1)
 
+        self.records_tree.bind("<Double-1>", lambda event: self.edit_selected_record())
+        self.record_edit_status = tk.StringVar()
+        ttk.Label(self.main_tab, textvariable=self.record_edit_status).pack(anchor="w", padx=12)
+
         bottom = ttk.Frame(self.main_tab)
         bottom.pack(fill="x", padx=10, pady=(0, 12))
+
+        ttk.Button(bottom, text="Редактирай избраното", command=self.edit_selected_record).pack(side="left", padx=(0, 8))
+        self.record_cancel_button = ttk.Button(bottom, text="Откажи редакцията", command=self.cancel_record_edit, state="disabled")
+        self.record_cancel_button.pack(side="left", padx=(0, 8))
 
         ttk.Button(
             bottom,
@@ -606,14 +619,7 @@ class ZaraExApp(tk.Tk):
             )
         )
 
-        self.add_delete_button(
-            frame,
-            "Изтрий избрания продукт",
-            lambda: self.delete_settings_item(
-                "products",
-                self.products_tree
-            )
-        )
+        self.add_settings_actions(frame, "products", self.products_tree, "Изтрий избрания продукт")
 
     # ========================================================
     # COMPANIES
@@ -649,14 +655,7 @@ class ZaraExApp(tk.Tk):
             )
         )
 
-        self.add_delete_button(
-            frame,
-            "Изтрий избраната фирма",
-            lambda: self.delete_settings_item(
-                "transport_companies",
-                self.companies_tree
-            )
-        )
+        self.add_settings_actions(frame, "transport_companies", self.companies_tree, "Изтрий избраната фирма")
 
     # ========================================================
     # VEHICLES
@@ -703,14 +702,7 @@ class ZaraExApp(tk.Tk):
             )
         )
 
-        self.add_delete_button(
-            frame,
-            "Изтрий избраното МПС",
-            lambda: self.delete_settings_item(
-                "vehicles",
-                self.vehicles_tree
-            )
-        )
+        self.add_settings_actions(frame, "vehicles", self.vehicles_tree, "Изтрий избраното МПС")
 
     # ========================================================
     # DRIVERS
@@ -760,14 +752,7 @@ class ZaraExApp(tk.Tk):
             )
         )
 
-        self.add_delete_button(
-            frame,
-            "Изтрий избрания шофьор",
-            lambda: self.delete_settings_item(
-                "drivers",
-                self.drivers_tree
-            )
-        )
+        self.add_settings_actions(frame, "drivers", self.drivers_tree, "Изтрий избрания шофьор")
 
     # ========================================================
     # BASES
@@ -799,14 +784,7 @@ class ZaraExApp(tk.Tk):
             )
         )
 
-        self.add_delete_button(
-            frame,
-            "Изтрий избраната база",
-            lambda: self.delete_settings_item(
-                "bases",
-                self.bases_tree
-            )
-        )
+        self.add_settings_actions(frame, "bases", self.bases_tree, "Изтрий избраната база")
 
     @staticmethod
     def make_settings_tree(parent, columns):
@@ -1009,12 +987,13 @@ class ZaraExApp(tk.Tk):
         if index < 0 or index >= len(self.store.data[collection]):
             return
 
-        if not messagebox.askyesno(
-            "Потвърждение",
-            "Да бъде ли изтрит избраният запис?"
-        ):
+        prompt = "Да бъде ли изтрит избраният запис?"
+        if collection == "transport_companies":
+            prompt += "\nЩе бъдат изтрити и свързаните МПС и шофьори."
+        if not messagebox.askyesno("Потвърждение", prompt):
             return
 
+        self.cancel_record_edit()
         deleted = self.store.data[collection].pop(index)
 
         # If a company is deleted, orphaned vehicles/drivers are also removed.
@@ -1135,6 +1114,9 @@ class ZaraExApp(tk.Tk):
 
             if self.d_company.get() not in companies:
                 self.d_company.set(companies[0])
+        else:
+            self.v_company.set("")
+            self.d_company.set("")
 
     @staticmethod
     def clear_tree(tree):
@@ -1165,14 +1147,14 @@ class ZaraExApp(tk.Tk):
         self.company_combo["values"] = companies
         self.base_combo["values"] = bases
 
-        if products and self.product_var.get() not in products:
-            self.product_var.set(products[0])
+        if self.product_var.get() not in products:
+            self.product_var.set(products[0] if products else "")
 
-        if companies and self.company_var.get() not in companies:
-            self.company_var.set(companies[0])
+        if self.company_var.get() not in companies:
+            self.company_var.set(companies[0] if companies else "")
 
-        if bases and self.base_var.get() not in bases:
-            self.base_var.set(bases[0])
+        if self.base_var.get() not in bases:
+            self.base_var.set(bases[0] if bases else "")
 
         self.refresh_company_dependent_dropdowns()
         self.update_selection_info()
@@ -1383,10 +1365,10 @@ class ZaraExApp(tk.Tk):
             company["eik"]
         )
 
-        if not vehicle:
+        if not any(v.get("registration") == vehicle and v.get("company_eik") == company["eik"] for v in self.store.data["vehicles"]):
             messagebox.showerror(
                 "Грешка",
-                "Избери МПС."
+                "Избери МПС към избраната транспортна фирма."
             )
             return
 
@@ -1432,7 +1414,11 @@ class ZaraExApp(tk.Tk):
             "base_eik": base["eik"],
         }
 
-        self.records.append(record)
+        if self.editing_record_index is None:
+            self.records.append(record)
+        else:
+            self.records[self.editing_record_index] = record
+            self.finish_record_edit()
         self.refresh_records_table()
 
         self.ukn_var.set("")
@@ -1481,6 +1467,9 @@ class ZaraExApp(tk.Tk):
             values = self.records_tree.item(item, "values")
             indexes.append(int(values[0]) - 1)
 
+        if not messagebox.askyesno("Потвърждение", f"Да бъдат ли изтрити избраните товарения ({len(indexes)})?"):
+            return
+        self.cancel_record_edit()
         for idx in sorted(indexes, reverse=True):
             del self.records[idx]
 
@@ -1494,6 +1483,7 @@ class ZaraExApp(tk.Tk):
             "Потвърждение",
             "Да бъдат ли изтрити всички товарения?"
         ):
+            self.cancel_record_edit()
             self.records.clear()
             self.refresh_records_table()
 

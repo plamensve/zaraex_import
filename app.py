@@ -1647,6 +1647,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     text_style
                 )
 
+                self.write_text(eadd, row, 28, r["base_name"], text_style)
                 self.write_text(eadd, row, 29, "99", text_style)
 
                 write_base_address(eadd, row, r["base_address"])

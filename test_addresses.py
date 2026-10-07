@@ -71,6 +71,7 @@ class AddressTests(unittest.TestCase):
         error.assert_not_called()
         sheet.write.assert_any_call(1, 17, "ул. Васил Априлов 43", "@")
         sheet.write.assert_any_call(1, 18, "Петрол АД", "@")
+        sheet.write.assert_any_call(1, 28, "Петрол АД", "@")
         workbook.save.assert_called_once_with("test.xls")
 
     def test_legacy_base_without_address_requires_completion(self):

@@ -1599,6 +1599,13 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 self.write_text(eadd, row, 13, "СОФИЯ", text_style)
                 self.write_text(eadd, row, 14, "68134", text_style)
 
+                delivery_address = " ".join(filter(None, (
+                    r["base_address"].get("street", ""),
+                    r["base_address"].get("number", ""),
+                )))
+                self.write_text(eadd, row, 17, delivery_address, text_style)
+                self.write_text(eadd, row, 18, r["base_name"], text_style)
+
                 # Transport company
                 self.write_text(
                     eadd, row, 20,

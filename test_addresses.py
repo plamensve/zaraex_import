@@ -57,6 +57,22 @@ class AddressTests(unittest.TestCase):
         subject.store.data["bases"][0]["address"]["city_code"] = "changed"
         self.assertEqual(subject.records[0]["base_address"]["city_code"], "07603")
 
+    def test_export_delivery_address_and_name_from_selected_base(self):
+        subject = self.record_subject()
+        subject.store.data["bases"][0]["name"] = "Петрол АД"
+        subject.store.data["bases"][0]["address"]["street"] = "ул. Васил Априлов"
+        subject.store.data["bases"][0]["address"]["number"] = "43"
+        ZaraExApp.add_record(subject)
+        subject.write_text = ZaraExApp.write_text
+        workbook = Mock()
+        sheet = workbook.sheet.return_value
+        with patch("app.ExcelWorkbook", return_value=workbook), patch("app.filedialog.asksaveasfilename", return_value="test.xls"), patch("app.messagebox.showinfo"), patch("app.messagebox.showerror") as error:
+            ZaraExApp.export_xls(subject)
+        error.assert_not_called()
+        sheet.write.assert_any_call(1, 17, "ул. Васил Априлов 43", "@")
+        sheet.write.assert_any_call(1, 18, "Петрол АД", "@")
+        workbook.save.assert_called_once_with("test.xls")
+
     def test_legacy_base_without_address_requires_completion(self):
         subject = self.record_subject()
         subject.store.data["bases"][0].pop("address")

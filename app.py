@@ -1545,7 +1545,11 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             number_style = "0.00"
             integer_style = "0"
 
+            supplier_object_column = len(EADD_HEADERS)
+            self.write_text(eadd, 0, supplier_object_column, "Обект дост. ЗараЕкс", text_style)
+
             for row, r in enumerate(self.records, start=1):
+                self.write_text(eadd, row, supplier_object_column, r["base_name"], text_style)
                 self.write_text(eadd, row, 0, r["ukn"], text_style)
                 self.write_text(eadd, row, 1, r["add_no"], text_style)
                 eadd.write(row, 2, r["date"], date_style)

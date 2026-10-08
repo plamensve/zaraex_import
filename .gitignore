@@ -5,3 +5,4 @@ venv/
 .idea/
 zaraex_data.json
 eadd_*.xls
+.build_assets/

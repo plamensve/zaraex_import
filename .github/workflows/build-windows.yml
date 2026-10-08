@@ -5,6 +5,7 @@ on:
     paths:
       - 'ZaraExImport.ico'
       - 'build_exe.ps1'
+      - 'optimize_icon.py'
       - 'app.py'
       - 'main.py'
       - 'addresses.py'

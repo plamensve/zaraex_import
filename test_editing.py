@@ -117,6 +117,17 @@ class EditingTests(unittest.TestCase):
         self.assertEqual(subject.records, [])
         subject.cancel_record_edit.assert_called_once()
 
+
+    def test_draft_records_survive_store_restart(self):
+        with tempfile.TemporaryDirectory() as directory, patch("app.__file__", directory + "/app.py"):
+            store = DataStore()
+            original = {"date": datetime(2026, 10, 8), "quantity": 125.5, "ukn": "0000123", "add_no": "0004"}
+            subject = SimpleNamespace(store=store, records=[original])
+            store.data["draft_records"] = [ZaraExApp.serialize_draft_record(original)]
+            store.save()
+            restored = ZaraExApp.load_draft_records(SimpleNamespace(store=DataStore()))
+            self.assertEqual(restored, [original])
+
     def test_cancel_edit_restores_form_without_changing_record(self):
         subject = self.record_subject()
         subject.record_form_before_edit = {key: "previous" for key in SettingsEditorMixin.record_form_variables(subject)}

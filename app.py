@@ -1487,7 +1487,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.records[self.editing_record_index] = record
             self.finish_record_edit()
         self.refresh_records_table()
-        self.save_draft_records()
+        if hasattr(self, "save_draft_records"):
+            self.save_draft_records()
 
         self.ukn_var.set("")
         self.add_var.set("")
@@ -1542,7 +1543,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             del self.records[idx]
 
         self.refresh_records_table()
-        self.save_draft_records()
+        if hasattr(self, "save_draft_records"):
+            self.save_draft_records()
 
     def clear_records(self):
         if not self.records:
@@ -1555,6 +1557,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.cancel_record_edit()
             self.records.clear()
             self.refresh_records_table()
+            if hasattr(self, "save_draft_records"):
             self.save_draft_records()
 
     # ========================================================

@@ -36,5 +36,55 @@ class ExcelDateTests(unittest.TestCase):
         self.assertIsNone(cell.Value2)
 
 
+
+
+class IssuerEikExportTests(unittest.TestCase):
+    def test_issuer_eik_uses_identifier_and_never_exceeds_14_characters(self):
+        from unittest.mock import Mock, patch
+        from app import ZaraExApp
+
+        address = {
+            "region": "Русе", "region_code": "RSE",
+            "municipality": "Бяла (Русе)", "municipality_code": "RSE04",
+            "city": "гр.Бяла (Русе)", "city_code": "07603",
+        }
+        record = {
+            "ukn": "00001", "add_no": "00002",
+            "date": datetime(2026, 10, 8), "fuel_kind": "diesel",
+            "kn_code": "27102011", "product_name": "Diesel", "quantity": 100.0,
+            "base_name": "Дълго наименование на петролна база",
+            "base_eik": "", "base_address": address,
+            "company_name": "Transport", "company_eik": "000012345",
+            "vehicle": "Truck", "driver_name": "Driver", "driver_egn": "0012345678",
+            "zara_code": "03",
+        }
+        examples = (
+            ("000012345", "000012345"),
+            ("001234567890123456", "00123456789012"),
+            (" 000012345 ", "000012345"),
+        )
+        for source, expected in examples:
+            with self.subTest(base_eik=source):
+                record["base_eik"] = source
+                workbook = Mock()
+                subject = SimpleNamespace(
+                    records=[record], write_text=ZaraExApp.write_text
+                )
+                with (
+                    patch("app.ExcelWorkbook", return_value=workbook),
+                    patch("app.validate_address", return_value=address),
+                    patch("app.filedialog.asksaveasfilename", return_value="generated.xls"),
+                    patch("app.messagebox.showinfo") as showinfo,
+                    patch("app.messagebox.showerror") as showerror,
+                ):
+                    ZaraExApp.export_xls(subject)
+
+                showerror.assert_not_called()
+                showinfo.assert_called_once()
+                sheet = workbook.sheet.return_value
+                sheet.write.assert_any_call(1, 44, expected, "@")  # AS
+                sheet.write.assert_any_call(1, 7, record["base_name"], "@")  # H
+                self.assertLessEqual(len(expected), 14)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1742,9 +1742,12 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     r["base_eik"],
                     text_style
                 )
+                # AS: the issuer's EIK, not the petroleum base name.
+                # ZaraEx accepts at most 14 characters in this column.
+                issuer_eik = str(r.get("base_eik") or "").strip()[:14]
                 self.write_text(
                     eadd, row, 44,
-                    r["base_name"],
+                    issuer_eik,
                     text_style
                 )
 

@@ -174,13 +174,38 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.minsize(1200, 720)
 
         self.store = DataStore()
-        self.records = []
+        self.records = self.load_draft_records()
         self.editing_record_index = None
 
         self.setup_styles()
         self.build_ui()
         self.refresh_all_settings_tables()
         self.refresh_main_dropdowns()
+        self.refresh_records_table()
+
+    @staticmethod
+    def serialize_draft_record(record):
+        result = dict(record)
+        result["date"] = record["date"].isoformat()
+        return result
+
+    def load_draft_records(self):
+        """Restore the pending declarations, keeping a bad row from crashing startup."""
+        from datetime import datetime
+        records = []
+        for stored in self.store.data.get("draft_records", []):
+            try:
+                record = dict(stored)
+                record["date"] = datetime.fromisoformat(record["date"])
+                record["quantity"] = float(record["quantity"])
+                records.append(record)
+            except (KeyError, TypeError, ValueError):
+                continue
+        return records
+
+    def save_draft_records(self):
+        self.store.data["draft_records"] = [self.serialize_draft_record(r) for r in self.records]
+        self.store.save()
 
     # ========================================================
     # STYLES
@@ -483,6 +508,16 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         table_frame.columnconfigure(0, weight=1)
 
         self.records_tree.bind("<Double-1>", lambda event: self.edit_selected_record())
+        actions_menu = tk.Menu(self.records_tree, tearoff=0)
+        actions_menu.add_command(label="Редактирай декларацията", command=self.edit_selected_record)
+        actions_menu.add_command(label="Премахни декларацията", command=self.delete_selected_records)
+        def show_record_actions(event):
+            row = self.records_tree.identify_row(event.y)
+            if row:
+                self.records_tree.selection_set(row)
+                actions_menu.tk_popup(event.x_root, event.y_root)
+                actions_menu.grab_release()
+        self.records_tree.bind("<Button-3>", show_record_actions)
         self.record_edit_status = tk.StringVar()
         ttk.Label(self.main_tab, textvariable=self.record_edit_status).pack(anchor="w", padx=12)
 
@@ -1452,6 +1487,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.records[self.editing_record_index] = record
             self.finish_record_edit()
         self.refresh_records_table()
+        self.save_draft_records()
 
         self.ukn_var.set("")
         self.add_var.set("")
@@ -1506,6 +1542,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             del self.records[idx]
 
         self.refresh_records_table()
+        self.save_draft_records()
 
     def clear_records(self):
         if not self.records:
@@ -1518,6 +1555,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.cancel_record_edit()
             self.records.clear()
             self.refresh_records_table()
+            self.save_draft_records()
 
     # ========================================================
     # EXPORT

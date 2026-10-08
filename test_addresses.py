@@ -2,7 +2,7 @@ import unittest
 import tempfile
 from unittest.mock import Mock, patch
 
-from addresses import LOCATIONS, validate_address, write_base_address, format_address
+from addresses import LOCATIONS, CITY_MUNICIPALITIES, validate_address, write_base_address, format_address
 from settings_editor import prepare_settings_edit
 from app import ZaraExApp, DataStore
 import test_editing
@@ -18,6 +18,17 @@ class AddressTests(unittest.TestCase):
         same_name = [item for item in LOCATIONS["city"] if item["name"] == "с.Бяла река"]
         self.assertGreater(len(same_name), 1)
         self.assertEqual(len({item["code"] for item in same_name}), len(same_name))
+
+
+    def test_settlement_hierarchy_for_sofia_alfatar_and_varna(self):
+        self.assertEqual(CITY_MUNICIPALITIES["68134"], "SOF46")
+        self.assertEqual(CITY_MUNICIPALITIES["00415"], "SLS01")
+        self.assertEqual(CITY_MUNICIPALITIES["10135"], "VAR06")
+        self.assertIn({"name": "гр.София", "code": "68134"}, LOCATIONS["city"])
+
+    def test_mismatched_settlement_municipality_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Населеното място"):
+            validate_address(dict(self.address, city="гр.Алфатар", city_code="00415"))
 
     def test_mismatched_region_municipality_rejected(self):
         with self.assertRaises(ValueError):

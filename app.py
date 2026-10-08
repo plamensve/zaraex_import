@@ -453,6 +453,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "vehicle",
             "driver",
             "zara",
+            "edit_action",
+            "delete_action",
         )
 
         self.records_tree = ttk.Treeview(
@@ -475,6 +477,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "vehicle": "МПС",
             "driver": "Шофьор",
             "zara": "Код ЗАРА",
+            "edit_action": "Редакция",
+            "delete_action": "Премахване",
         }
 
         widths = {
@@ -490,6 +494,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "vehicle": 135,
             "driver": 200,
             "zara": 120,
+            "edit_action": 100,
+            "delete_action": 100,
         }
 
         for c in columns:
@@ -525,6 +531,20 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         table_frame.rowconfigure(0, weight=1)
         table_frame.columnconfigure(0, weight=1)
 
+        def record_action_click(event):
+            row = self.records_tree.identify_row(event.y)
+            column = self.records_tree.identify_column(event.x)
+            if not row:
+                return
+            self.records_tree.selection_set(row)
+            if column == f"#{columns.index('edit_action') + 1}":
+                self.edit_selected_record()
+                return "break"
+            if column == f"#{columns.index('delete_action') + 1}":
+                self.delete_selected_records()
+                return "break"
+
+        self.records_tree.bind("<ButtonRelease-1>", record_action_click)
         self.records_tree.bind("<Double-1>", lambda event: self.edit_selected_record())
         actions_menu = tk.Menu(self.records_tree, tearoff=0)
         actions_menu.add_command(label="Редактирай декларацията", command=self.edit_selected_record)
@@ -1539,6 +1559,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     r["vehicle"],
                     r["driver_name"],
                     r["zara_code"],
+                    "✎ Редакция",
+                    "✕ Премахни",
                 )
             )
 

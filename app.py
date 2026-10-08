@@ -1598,7 +1598,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.records.clear()
             self.refresh_records_table()
             if hasattr(self, "save_draft_records"):
-            self.save_draft_records()
+                self.save_draft_records()
 
     # ========================================================
     # EXPORT

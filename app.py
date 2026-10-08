@@ -1679,13 +1679,15 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     text_style
                 )
 
-                # Existing fixed location logic from the original working file.
-                self.write_text(eadd, row, 9, "СОФИЯ (SOF)", text_style)
-                self.write_text(eadd, row, 10, "SOF", text_style)
-                self.write_text(eadd, row, 11, "СТОЛИЧНА", text_style)
-                self.write_text(eadd, row, 12, "SOF46", text_style)
-                self.write_text(eadd, row, 13, "СОФИЯ", text_style)
-                self.write_text(eadd, row, 14, "68134", text_style)
+                # J–O: loading location of the selected petroleum base.
+                # Use the same validated administrative codes as AE–AJ.
+                address = validate_address(r["base_address"])
+                self.write_text(eadd, row, 9, address["region"], text_style)
+                self.write_text(eadd, row, 10, address["region_code"], text_style)
+                self.write_text(eadd, row, 11, address["municipality"], text_style)
+                self.write_text(eadd, row, 12, address["municipality_code"], text_style)
+                self.write_text(eadd, row, 13, address["city"], text_style)
+                self.write_text(eadd, row, 14, address["city_code"], text_style)
 
                 # Transport company
                 self.write_text(

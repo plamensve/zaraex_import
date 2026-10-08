@@ -1,3 +1,4 @@
+import sys
 import json
 import os
 import tkinter as tk
@@ -134,10 +135,27 @@ EADD_HEADERS = [
 
 class DataStore:
     def __init__(self):
-        self.path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            DATA_FILE
-        )
+        # One-file EXEs unpack __file__ to a temporary directory.
+        if getattr(sys, "frozen", False):
+            user_dir = os.path.join(
+                os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
+                "ZaraExImport",
+            )
+            os.makedirs(user_dir, exist_ok=True)
+            self.path = os.path.join(user_dir, DATA_FILE)
+            if not os.path.exists(self.path):
+                for legacy in (
+                    os.path.join(os.path.dirname(sys.executable), DATA_FILE),
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), DATA_FILE),
+                ):
+                    if os.path.isfile(legacy):
+                        import shutil
+                        shutil.copy2(legacy, self.path)
+                        break
+        else:
+            self.path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), DATA_FILE
+            )
         self.data = self.load()
 
     def load(self):

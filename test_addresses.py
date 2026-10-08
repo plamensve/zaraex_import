@@ -84,6 +84,12 @@ class AddressTests(unittest.TestCase):
         error.assert_not_called()
         sheet.write.assert_any_call(1, 7, "Петрол АД", "@")
         sheet.write.assert_any_call(1, 29, "0026", "@")
+        # J–O and AE–AJ must reflect the same selected petroleum base.
+        address = subject.records[0]["base_address"]
+        for column, key in ((9, "region"), (10, "region_code"), (11, "municipality"), (12, "municipality_code"), (13, "city"), (14, "city_code")):
+            sheet.write.assert_any_call(1, column, address[key], "@")
+            sheet.write.assert_any_call(1, column + 21, address[key], "@")
+
         sheet.write.assert_any_call(1, 2, subject.records[0]["date"], "DD.MM.YYYY")
         sheet.write.assert_any_call(1, 47, subject.records[0]["date"], "DD.MM.YYYY")
         self.assertFalse(any(call.args[1] >= 63 for call in sheet.write.call_args_list))

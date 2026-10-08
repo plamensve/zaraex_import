@@ -12,6 +12,9 @@ def load_locations():
 
 
 LOCATIONS = load_locations()
+with Path(__file__).with_name("city_municipalities.json").open(encoding="utf-8") as file:
+    CITY_MUNICIPALITIES = json.load(file)
+
 LOCATION_FIELDS = (("region", "domain", "Област"), ("municipality", "municipality", "Община"), ("city", "city", "Населено място"))
 
 
@@ -23,6 +26,11 @@ def validate_address(address):
             raise ValueError(f"Избери валидно поле „{label}“ от списъка.")
     if not result["municipality_code"].startswith(result["region_code"]):
         raise ValueError("Общината не е към избраната област.")
+    mapped_municipality = CITY_MUNICIPALITIES.get(result["city_code"])
+    if mapped_municipality and mapped_municipality != result["municipality_code"]:
+        raise ValueError("Населеното място не принадлежи на избраната община.")
+    if not mapped_municipality:
+        raise ValueError("Липсва потвърдена община за това населено място. Не може да се експортира с непроверен адрес.")
     result["street"] = result.get("street", "").strip()
     result["number"] = result.get("number", "").strip()
     if not result["street"]:
@@ -78,11 +86,17 @@ class AddressFields(ttk.LabelFrame):
         ttk.Label(self, text="Пиши име или код и избери от списъка. Кодът се попълва автоматично.").grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 0))
         self.columnconfigure(1, weight=1)
         self.refresh_municipalities()
+        self.refresh_cities()
 
     def available_choices(self, field):
         choices = self.choices[field]
         if field == "municipality" and self.codes["region"].get():
             return {text: item for text, item in choices.items() if item["code"].startswith(self.codes["region"].get())}
+        if field == "city" and self.codes["municipality"].get():
+            municipality_code = self.codes["municipality"].get()
+            return {text: item for text, item in choices.items() if CITY_MUNICIPALITIES.get(item["code"]) == municipality_code}
+        if field == "city":
+            return {}
         return choices
 
     def filter_choices(self, field):
@@ -92,13 +106,16 @@ class AddressFields(ttk.LabelFrame):
         self.codes[field].set(item["code"] if item else "")
         if field == "region":
             self.refresh_municipalities()
+            self.refresh_cities()
+        elif field == "municipality":
+            self.refresh_cities()
 
     def selected(self, field):
         text = self.variables[field].get().strip()
         choices = self.available_choices(field)
         item = choices.get(text)
         if item is None:
-            matches = [(label, entry) for label, entry in choices.items() if text.casefold() in (entry["name"].casefold(), entry["code"].casefold())]
+            matches = [(label, entry) for label, entry in choices.items() if text.casefold() in entry["name"].casefold() or text.casefold() in entry["code"].casefold()]
             if len(matches) == 1:
                 text, item = matches[0]
                 self.variables[field].set(text)
@@ -106,6 +123,9 @@ class AddressFields(ttk.LabelFrame):
         self.combos[field]["values"] = list(choices)
         if field == "region":
             self.refresh_municipalities()
+            self.refresh_cities()
+        elif field == "municipality":
+            self.refresh_cities()
 
     def refresh_municipalities(self):
         choices = self.available_choices("municipality")
@@ -114,6 +134,14 @@ class AddressFields(ttk.LabelFrame):
         if current and current not in choices:
             self.variables["municipality"].set("")
             self.codes["municipality"].set("")
+
+    def refresh_cities(self):
+        choices = self.available_choices("city")
+        self.combos["city"]["values"] = list(choices)
+        current = self.variables["city"].get()
+        if current and current not in choices:
+            self.variables["city"].set("")
+            self.codes["city"].set("")
 
     def get_address(self):
         address = {key: self.variables[key].get().strip() for key in ("street", "number")}
@@ -130,4 +158,4 @@ class AddressFields(ttk.LabelFrame):
         for var in self.codes.values():
             var.set("")
         for field in self.combos:
-            self.combos[field]["values"] = list(self.choices[field])
+            self.combos[field]["values"] = list(self.available_choices(field))

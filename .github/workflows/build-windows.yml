@@ -1,0 +1,37 @@
+name: Build Windows EXE
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ZaraExImport.ico'
+      - 'build_exe.ps1'
+      - 'app.py'
+      - 'main.py'
+      - 'addresses.py'
+      - 'excel_export.py'
+      - 'settings_editor.py'
+      - 'product_catalog.py'
+      - 'products.json'
+      - 'locations.json'
+      - 'city_municipalities.json'
+      - 'zaraex_template.xls'
+      - '.github/workflows/build-windows.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build executable
+        shell: pwsh
+        run: .\build_exe.ps1
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZaraExImport-Windows
+          path: dist/ZaraExImport.exe
+          if-no-files-found: error

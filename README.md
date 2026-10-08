@@ -2,6 +2,17 @@
 
 Приложение за въвеждане на товарения и генериране на XLS файл за импорт в ZaraEx.
 
+## Генериране на Windows .exe
+
+Новата иконка е в `ZaraExImport.ico` и се включва автоматично както в самия изпълним файл, така и в заглавната лента на приложението. Използвай Windows, Python 3.12 и PowerShell. От папката на проекта изпълни:
+
+```powershell
+git pull origin main
+.\build_exe.ps1
+```
+
+Готовият файл е `dist\ZaraExImport.exe`. Може също да изтеглиш автоматично компилирания `ZaraExImport-Windows` artifact от GitHub Actions → `Build Windows EXE`; изтегленият ZIP съдържа EXE файла. За използване на XLS експорта на целевия компютър трябва да има инсталиран Microsoft Excel.
+
 ## Стартиране
 
 Необходими са Windows, Python 3.12 и инсталиран Microsoft Excel.

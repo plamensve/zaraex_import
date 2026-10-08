@@ -15,6 +15,13 @@ from addresses import AddressFields, validate_address, format_address
 
 APP_TITLE = "ZaraEx Import Generator"
 DATA_FILE = "zaraex_data.json"
+APP_ICON_FILE = "ZaraExImport.ico"
+
+
+def app_icon_path():
+    """Locate the icon in both source checkouts and PyInstaller bundles."""
+    resource_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(resource_dir, APP_ICON_FILE)
 
 
 # ============================================================
@@ -190,6 +197,15 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.title(APP_TITLE)
         self.geometry("1520x900")
         self.minsize(1200, 720)
+
+        # Match the title-bar/taskbar icon to the executable icon on Windows.
+        if os.name == "nt":
+            icon_file = app_icon_path()
+            if os.path.isfile(icon_file):
+                try:
+                    self.iconbitmap(default=icon_file)
+                except tk.TclError:
+                    pass
 
         self.store = DataStore()
         self.records = self.load_draft_records()

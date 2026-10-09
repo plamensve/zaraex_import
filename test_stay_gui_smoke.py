@@ -22,8 +22,8 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                     app.update_idletasks()
                     labels = [app.notebook.tab(item, "text") for item in app.notebook.tabs()]
                     self.assertEqual(labels, [
-                        "ЗараЕкс – Товарения",
-                        "ЗараЕкс – Настройки",
+                        "ZaraEx – Товарения",
+                        "ZaraEx – Настройки",
                         "НАП – Декларации за престой",
                     ])
                     self.assertIs(tk._default_root, app)

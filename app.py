@@ -317,8 +317,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.settings_tab = ttk.Frame(self.notebook)
         self.stay_tab = ttk.Frame(self.notebook)
 
-        self.notebook.add(self.main_tab, text="ЗараЕкс – Товарения")
-        self.notebook.add(self.settings_tab, text="ЗараЕкс – Настройки")
+        self.notebook.add(self.main_tab, text="ZaraEx – Товарения")
+        self.notebook.add(self.settings_tab, text="ZaraEx – Настройки")
         self.notebook.add(self.stay_tab, text="НАП – Декларации за престой")
 
         self.build_main_tab()

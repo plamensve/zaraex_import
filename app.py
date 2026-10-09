@@ -14,6 +14,12 @@ from addresses import AddressFields, validate_address, format_address
 
 
 APP_TITLE = "ZaraEx Import Generator"
+APP_VERSION = "1.0.0"
+APP_AUTHOR = "Plamen Svetoslavov"
+COPYRIGHT_NOTICE = f"© 2026 {APP_AUTHOR}. Всички права запазени."
+APP_FOOTER_TEXT = (
+    f"Created by {APP_AUTHOR}   •   Версия {APP_VERSION}   •   {COPYRIGHT_NOTICE}"
+)
 DATA_FILE = "zaraex_data.json"
 APP_ICON_FILE = "ZaraExImport.ico"
 
@@ -302,6 +308,10 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             font=("Segoe UI", 20, "bold")
         ).pack(side="left", padx=24, pady=17)
 
+        # Pack before the expanding notebook to keep authorship visible
+        # at the very bottom of the window in every application tab.
+        self.build_footer()
+
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=14, pady=14)
 
@@ -313,6 +323,23 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         self.build_main_tab()
         self.build_settings_tab()
+
+    def build_footer(self):
+        """Fixed, unobtrusive author/version and copyright information."""
+        footer = tk.Frame(self, bg="#edf2f8")
+        footer.pack(side="bottom", fill="x")
+
+        ttk.Separator(footer, orient="horizontal").pack(fill="x")
+        tk.Label(
+            footer,
+            text=APP_FOOTER_TEXT,
+            font=("Segoe UI", 9),
+            bg="#edf2f8",
+            fg="#415672",
+            anchor="e",
+            padx=20,
+            pady=8,
+        ).pack(fill="x")
 
     # ========================================================
     # MAIN TAB

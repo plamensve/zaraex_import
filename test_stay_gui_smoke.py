@@ -12,6 +12,60 @@ from unittest.mock import patch
 @unittest.skipUnless(sys.platform == "win32" or os.environ.get("DISPLAY"),
                      "Requires a Tk display")
 class EmbeddedStayGuiSmokeTests(unittest.TestCase):
+    def test_sofia_selection_filters_children_and_populates_codes(self):
+        from app import ZaraExApp
+        from nap_stay import eStayGen as stay
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"LOCALAPPDATA": directory}):
+            app = ZaraExApp()
+            try:
+                app.open_workspace("stay")
+                app.update()
+                stay.region_entry.insert(0, "София")
+                app.update()
+                popup = stay.region_entry.listbox
+                suggestions = popup.get(0, tk.END)
+                index = next(i for i, text in enumerate(suggestions) if text.endswith(" · SFO"))
+                self.assertGreater(index, 0)  # Reproduce clicking a non-first suggestion.
+                box = popup.bbox(index)
+                popup.event_generate("<Button-1>", x=8, y=box[1] + box[3] // 2)
+                self.assertEqual(stay.region_code_var.get(), "SFO")
+                stay.region_entry.var.set("София")
+                app.update()
+                popup = stay.region_entry.listbox
+                suggestions = popup.get(0, tk.END)
+                index = next(i for i, text in enumerate(suggestions) if "София (столица)" in text)
+                box = popup.bbox(index)
+                popup.event_generate("<Button-1>", x=8, y=box[1] + box[3] // 2)
+                self.assertEqual(stay.region_code_var.get(), "SOF")
+                self.assertEqual(stay.municipality_entry.get(), "Столична")
+                self.assertEqual(stay.municipality_code_var.get(), "SOF46")
+                stay.municipality_entry.delete(0, tk.END)
+                stay.municipality_entry.insert(0, "София")
+                stay.municipality_entry.event_generate("<FocusOut>")
+                self.assertEqual(stay.municipality_entry.get(), "Столична")
+                self.assertEqual(stay.municipality_code_var.get(), "SOF46")
+                stay.city_entry.insert(0, "София")
+                stay.city_entry.selection(None)
+                self.assertEqual(stay.city_code_var.get(), "68134")
+                row = app.stay_tab.stay_content.saved_address_rows[0]
+                row["region"].var.set("София (столица)")
+                row["city"].var.set("гр.София")
+                self.assertEqual(row["municipality_code_var"].get(), "SOF46")
+                self.assertEqual(row["city_code_var"].get(), "68134")
+                stay.region_entry.var.set("Варна")
+                self.assertEqual(stay.region_code_var.get(), "VAR")
+                self.assertEqual(stay.municipality_code_var.get(), "")
+                self.assertEqual(stay.city_code_var.get(), "")
+                self.assertTrue(stay.municipality_entry.autocomplete_list)
+                self.assertTrue(all("VAR" in value for value in stay.municipality_entry.autocomplete_list))
+                self.assertEqual(row["municipality_code_var"].get(), "SOF46")
+                stay.region_entry.var.set("невалидна област")
+                self.assertEqual(stay.region_code_var.get(), "")
+                self.assertEqual(stay.municipality_entry.autocomplete_list, [])
+            finally:
+                app.close_application()
+
     def test_saved_address_card_can_edit_apply_and_delete(self):
         from app import ZaraExApp
         from nap_stay import eStayGen as stay
@@ -26,6 +80,9 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                                ("city", stay.CITY_DICT)):
             saved[key] = next(name for name, code in catalogue.items()
                               if code == saved[key + "_code"])
+        # A legacy template may call the municipality Sofia and omit its code.
+        saved["municipality"] = "София"
+        saved["municipality_code"] = ""
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"LOCALAPPDATA": directory}):
                 path = stay.saved_addresses_path()
@@ -36,6 +93,8 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                     app.open_workspace("stay")
                     app.update()
                     row = app.stay_tab.stay_content.saved_address_rows[0]
+                    self.assertEqual(row["municipality"].get(), "Столична")
+                    self.assertEqual(row["municipality_code_var"].get(), "SOF46")
                     self.assertFalse(row["address"].winfo_ismapped())
                     row["toggle_button"].invoke()
                     app.update()

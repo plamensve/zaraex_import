@@ -17,9 +17,7 @@ APP_TITLE = "ZaraEx Import Generator"
 APP_VERSION = "1.0.0"
 APP_AUTHOR = "Plamen Svetoslavov"
 COPYRIGHT_NOTICE = f"© 2026 {APP_AUTHOR}. Всички права запазени."
-APP_FOOTER_TEXT = (
-    f"Created by {APP_AUTHOR}   •   Версия {APP_VERSION}   •   {COPYRIGHT_NOTICE}"
-)
+APP_VERSION_LABEL = f"Версия {APP_VERSION}"
 DATA_FILE = "zaraex_data.json"
 APP_ICON_FILE = "ZaraExImport.ico"
 
@@ -325,21 +323,36 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.build_settings_tab()
 
     def build_footer(self):
-        """Fixed, unobtrusive author/version and copyright information."""
-        footer = tk.Frame(self, bg="#edf2f8")
+        """Professional bottom status bar with a concise copyright notice."""
+        background = "#f4f7fb"
+        footer = tk.Frame(self, bg=background)
         footer.pack(side="bottom", fill="x")
 
         ttk.Separator(footer, orient="horizontal").pack(fill="x")
+        content = tk.Frame(footer, bg=background)
+        content.pack(fill="x")
+
         tk.Label(
-            footer,
-            text=APP_FOOTER_TEXT,
+            content,
+            text=COPYRIGHT_NOTICE,
             font=("Segoe UI", 9),
-            bg="#edf2f8",
+            bg=background,
             fg="#415672",
+            anchor="w",
+            padx=20,
+            pady=9,
+        ).pack(side="left")
+
+        tk.Label(
+            content,
+            text=APP_VERSION_LABEL,
+            font=("Segoe UI", 9),
+            bg=background,
+            fg="#607089",
             anchor="e",
             padx=20,
-            pady=8,
-        ).pack(fill="x")
+            pady=9,
+        ).pack(side="right")
 
     # ========================================================
     # MAIN TAB

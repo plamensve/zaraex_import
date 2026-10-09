@@ -315,12 +315,24 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         self.main_tab = ttk.Frame(self.notebook)
         self.settings_tab = ttk.Frame(self.notebook)
+        self.stay_tab = ttk.Frame(self.notebook)
 
-        self.notebook.add(self.main_tab, text="Товарения")
-        self.notebook.add(self.settings_tab, text="Настройки")
+        self.notebook.add(self.main_tab, text="ЗараЕкс – Товарения")
+        self.notebook.add(self.settings_tab, text="ЗараЕкс – Настройки")
+        self.notebook.add(self.stay_tab, text="НАП – Декларации за престой")
 
         self.build_main_tab()
         self.build_settings_tab()
+
+        from nap_stay import create_stay_tab
+        self.save_stay_addresses = create_stay_tab(self.stay_tab)
+        self.protocol("WM_DELETE_WINDOW", self.close_application)
+
+    def close_application(self):
+        """Save both modules' data before closing the shared main window."""
+        if hasattr(self, "save_stay_addresses"):
+            self.save_stay_addresses()
+        self.destroy()
 
     def build_footer(self):
         """Professional bottom status bar with a concise copyright notice."""

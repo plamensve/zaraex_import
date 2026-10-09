@@ -7,6 +7,8 @@ on:
       - 'build_exe.ps1'
       - 'optimize_icon.py'
       - 'app.py'
+      - 'nap_stay/**'
+      - 'requirements.txt'
       - 'main.py'
       - 'addresses.py'
       - 'excel_export.py'

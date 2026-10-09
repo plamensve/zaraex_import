@@ -25,6 +25,13 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed `
     --add-data "products.json;." `
     --add-data "locations.json;." `
     --add-data "city_municipalities.json;." `
+    --add-data "nap_stay\data\domain.xlsx;nap_stay/data" `
+    --add-data "nap_stay\data\municipality.xlsx;nap_stay/data" `
+    --add-data "nap_stay\data\city.xlsx;nap_stay/data" `
+    --add-data "nap_stay\data\eStayGen_ico.ico;nap_stay/data" `
+    --hidden-import "tkcalendar" `
+    --hidden-import "babel.numbers" `
+    --collect-data "babel" `
     main.py
 if ($LASTEXITCODE -ne 0) { throw "Windows executable build failed." }
 

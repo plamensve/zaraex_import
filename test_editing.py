@@ -158,6 +158,7 @@ class EditingTests(unittest.TestCase):
 
     def test_edit_existing_loading_preserves_distinct_handover_details(self):
         subject = self.record_subject()
+        subject.editing_record_index = None
         subject.records[0] = {
             "date": datetime(2026, 10, 7), "ukn": "00001", "add_no": "00002",
             "quantity": 100.5, "zara_code": "03", "product_name": "Diesel",
@@ -181,6 +182,7 @@ class EditingTests(unittest.TestCase):
 
     def test_edit_legacy_loading_uses_driver_as_handover(self):
         subject = self.record_subject()
+        subject.editing_record_index = None
         subject.records[0] = {
             "date": datetime(2026, 10, 7), "ukn": "00001", "add_no": "00002",
             "quantity": 100.5, "zara_code": "03", "product_name": "Diesel",

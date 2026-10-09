@@ -17,6 +17,25 @@ APP_TITLE = "ZaraEx Import Generator"
 DATA_FILE = "zaraex_data.json"
 APP_ICON_FILE = "ZaraExImport.ico"
 
+# Main form: (field key, label, widget type, row, first column, column span).
+# Each of the three input rows covers the same twelve-column grid.
+# Labels are placed ABOVE the widgets in every cell for consistent alignment.
+LOADING_FORM_COLUMNS = 12
+LOADING_FORM_FIELDS = (
+    ("date", "Дата", "entry", 0, 0, 2),
+    ("ukn", "УКН", "entry", 0, 2, 3),
+    ("add", "ADD №", "entry", 0, 5, 2),
+    ("quantity", "Количество (л.)", "entry", 0, 7, 3),
+    ("zara", "Код ЗАРА", "entry", 0, 10, 2),
+    ("product", "Продукт", "combo", 1, 0, 6),
+    ("base", "Петролна база", "combo", 1, 6, 3),
+    ("company", "Транспортна фирма", "combo", 1, 9, 3),
+    ("vehicle", "МПС", "combo", 2, 0, 3),
+    ("driver", "Шофьор", "combo", 2, 3, 3),
+    ("handover_name", "Име на предал горивото", "entry", 2, 6, 3),
+    ("handover_egn", "ЕГН на предал горивото", "entry", 2, 9, 3),
+)
+
 
 def app_icon_path():
     """Locate the icon in both source checkouts and PyInstaller bundles."""
@@ -262,6 +281,10 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "Primary.TButton",
             font=("Segoe UI", 10, "bold")
         )
+        # Matching vertical padding for text inputs and readonly selectors.
+        style.configure("Loading.TEntry", padding=(7, 6))
+        style.configure("Loading.TCombobox", padding=(7, 6))
+        style.configure("Loading.TLabel", font=("Segoe UI", 10))
 
     # ========================================================
     # MAIN UI
@@ -319,158 +342,74 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.handover_name_var = tk.StringVar()
         self.handover_egn_var = tk.StringVar()
 
-        # Row 0
-        self.add_entry(form, "Дата", self.date_var, 0, 0, 16)
-        self.add_entry(form, "УКН", self.ukn_var, 0, 2, 24)
-        self.add_entry(form, "ADD №", self.add_var, 0, 4, 18)
-        self.add_entry(form, "Количество (л.)", self.quantity_var, 0, 6, 16)
-        self.add_entry(form, "Код ЗАРА", self.zara_var, 0, 8, 18)
+        # One twelve-column grid for all fields. Each field has the same
+        # label-above-input layout, regardless of whether it is an Entry or
+        # Combobox; column spans control widths without shifting baselines.
+        for column in range(LOADING_FORM_COLUMNS):
+            form.columnconfigure(column, weight=1, uniform="loading")
 
-        # Row 1 product
-        ttk.Label(form, text="Продукт").grid(
-            row=1, column=0, sticky="w", padx=5, pady=8
-        )
+        for key, label, kind, row, column, span in LOADING_FORM_FIELDS:
+            field_frame = ttk.Frame(form)
+            field_frame.grid(
+                row=row, column=column, columnspan=span,
+                sticky="ew", padx=6, pady=(4, 8)
+            )
+            field_frame.columnconfigure(0, weight=1)
 
-        self.product_combo = ttk.Combobox(
-            form,
-            textvariable=self.product_var,
-            state="readonly",
-            width=55
-        )
-        self.product_combo.grid(
-            row=1, column=1, columnspan=3,
-            sticky="ew", padx=(0, 15), pady=8
-        )
+            ttk.Label(
+                field_frame, text=label, style="Loading.TLabel"
+            ).grid(row=0, column=0, sticky="w", pady=(0, 5))
 
-        ttk.Label(form, text="Петролна база").grid(
-            row=1, column=4, sticky="w", padx=5, pady=8
-        )
+            variable = getattr(self, f"{key}_var")
+            if kind == "combo":
+                widget = ttk.Combobox(
+                    field_frame, textvariable=variable, state="readonly",
+                    style="Loading.TCombobox", width=1
+                )
+                setattr(self, f"{key}_combo", widget)
+            else:
+                widget = ttk.Entry(
+                    field_frame, textvariable=variable,
+                    style="Loading.TEntry", width=1
+                )
+            widget.grid(row=1, column=0, sticky="ew")
 
-        self.base_combo = ttk.Combobox(
-            form,
-            textvariable=self.base_var,
-            state="readonly",
-            width=28
-        )
-        self.base_combo.grid(
-            row=1, column=5,
-            sticky="ew", padx=(0, 15), pady=8
-        )
-
-        ttk.Label(form, text="Транспортна фирма").grid(
-            row=1, column=6, sticky="w", padx=5, pady=8
-        )
-
-        self.company_combo = ttk.Combobox(
-            form,
-            textvariable=self.company_var,
-            state="readonly",
-            width=30
-        )
-        self.company_combo.grid(
-            row=1, column=7,
-            sticky="ew", padx=(0, 15), pady=8
-        )
         self.company_combo.bind(
-            "<<ComboboxSelected>>",
-            self.on_company_changed
+            "<<ComboboxSelected>>", self.on_company_changed
         )
-
-        # Row 2
-        ttk.Label(form, text="МПС").grid(
-            row=2, column=0, sticky="w", padx=5, pady=8
-        )
-
-        self.vehicle_combo = ttk.Combobox(
-            form,
-            textvariable=self.vehicle_var,
-            state="readonly",
-            width=24
-        )
-        self.vehicle_combo.grid(
-            row=2, column=1,
-            sticky="ew", padx=(0, 15), pady=8
-        )
-
-        ttk.Label(form, text="Шофьор").grid(
-            row=2, column=2, sticky="w", padx=5, pady=8
-        )
-
-        self.driver_combo = ttk.Combobox(
-            form,
-            textvariable=self.driver_var,
-            state="readonly",
-            width=30
-        )
-        self.driver_combo.grid(
-            row=2, column=3,
-            sticky="ew", padx=(0, 15), pady=8
-        )
-
-        # These fields describe the person handing over the fuel, not the driver
-        # who accepted it. Each label and entry share a compact grid cell.
-        handover_name_frame = ttk.Frame(form)
-        handover_name_frame.grid(
-            row=2, column=4, columnspan=2,
-            sticky="ew", padx=(5, 15), pady=4
-        )
-        ttk.Label(handover_name_frame, text="Име на предал горивото").pack(anchor="w")
-        ttk.Entry(
-            handover_name_frame, textvariable=self.handover_name_var, width=28
-        ).pack(fill="x", pady=(3, 0))
-
-        handover_egn_frame = ttk.Frame(form)
-        handover_egn_frame.grid(
-            row=2, column=6, columnspan=2,
-            sticky="ew", padx=(5, 15), pady=4
-        )
-        ttk.Label(handover_egn_frame, text="ЕГН на предал горивото").pack(anchor="w")
-        ttk.Entry(
-            handover_egn_frame, textvariable=self.handover_egn_var, width=19
-        ).pack(fill="x", pady=(3, 0))
-
-        ttk.Button(
-            form,
-            text="Използвай шофьора",
-            command=self.use_driver_as_handover,
-        ).grid(row=3, column=4, columnspan=4, sticky="w", padx=5, pady=(1, 6))
-
-        self.record_save_button = ttk.Button(
-            form,
-            text="Добави товарене",
-            style="Primary.TButton",
-            command=self.add_record
-        )
-        self.record_save_button.grid(
-            row=2, column=8, columnspan=2,
-            sticky="e", padx=10, pady=8
-        )
-
-        # Info line
-        self.selection_info_var = tk.StringVar()
-        ttk.Label(
-            form,
-            textvariable=self.selection_info_var
-        ).grid(
-            row=4, column=0, columnspan=10,
-            sticky="w", padx=5, pady=(4, 0)
-        )
-
         self.product_combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.update_selection_info()
+            "<<ComboboxSelected>>", lambda event: self.update_selection_info()
         )
         self.base_combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.update_selection_info()
+            "<<ComboboxSelected>>", lambda event: self.update_selection_info()
         )
-        self.vehicle_combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.update_selection_info()
+
+        # Controls sit in their own row and do not affect the input heights.
+        actions = ttk.Frame(form)
+        actions.grid(
+            row=3, column=0, columnspan=LOADING_FORM_COLUMNS,
+            sticky="ew", padx=6, pady=(3, 9)
         )
-        self.driver_combo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.update_selection_info()
+        self.record_save_button = ttk.Button(
+            actions, text="Добави товарене", style="Primary.TButton",
+            command=self.add_record
+        )
+        self.record_save_button.pack(side="right")
+        ttk.Button(
+            actions, text="Използвай шофьора",
+            command=self.use_driver_as_handover
+        ).pack(side="right", padx=(0, 10))
+
+        ttk.Separator(form, orient="horizontal").grid(
+            row=4, column=0, columnspan=LOADING_FORM_COLUMNS,
+            sticky="ew", padx=6, pady=(0, 8)
+        )
+        self.selection_info_var = tk.StringVar()
+        ttk.Label(
+            form, textvariable=self.selection_info_var
+        ).grid(
+            row=5, column=0, columnspan=LOADING_FORM_COLUMNS,
+            sticky="w", padx=6, pady=(0, 2)
         )
 
         # Records table

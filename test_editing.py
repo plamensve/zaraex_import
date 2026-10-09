@@ -217,15 +217,15 @@ class EditingTests(unittest.TestCase):
 class SelectionInfoTests(unittest.TestCase):
     def setUp(self):
         self.products = [
-            {"name": "Diesel", "fuel_kind": "Газьол - немаркиран", "kn_code": "27102011", "link_code": "31"},
-            {"name": "Biodiesel", "fuel_kind": "Биодизел", "kn_code": "38260010", "link_code": ""},
+            {"name": "ДИЗЕЛОВО ГОРИВО 0.001% S мин. 6% FAME, вкл. 2% от ново поколение", "fuel_kind": "Газьол - немаркиран", "kn_code": "27102011", "link_code": "31"},
+            {"name": "БИОДИЗЕЛ", "fuel_kind": "Биодизел", "kn_code": "38260010", "link_code": ""},
         ]
         self.bases = [
             {"name": "ТОПЛИВО АД", "eik": "831924394"},
             {"name": "База Русе", "eik": "123456789"},
         ]
         self.subject = SimpleNamespace(
-            product_var=Variable("Diesel"),
+            product_var=Variable("ДИЗЕЛОВО ГОРИВО 0.001% S мин. 6% FAME, вкл. 2% от ново поколение"),
             base_var=Variable("ТОПЛИВО АД"),
             selection_info_var=Variable(),
         )
@@ -236,21 +236,21 @@ class SelectionInfoTests(unittest.TestCase):
             (base for base in self.bases if base["name"] == name), None
         )
 
-    def test_display_contains_only_fuel_kind_cn_code_and_loading_base(self):
+    def test_display_contains_full_product_name_cn_code_and_loading_base(self):
         ZaraExApp.update_selection_info(self.subject)
         self.assertEqual(
             self.subject.selection_info_var.get(),
-            "Вид гориво: Газьол - немаркиран   |   Код по КН: 27102011"
+            "Вид гориво: ДИЗЕЛОВО ГОРИВО 0.001% S мин. 6% FAME, вкл. 2% от ново поколение   |   Код по КН: 27102011"
             "   |   База на товарене: ТОПЛИВО АД",
         )
 
     def test_display_updates_when_product_or_base_changes(self):
-        self.subject.product_var.set("Biodiesel")
+        self.subject.product_var.set("БИОДИЗЕЛ")
         self.subject.base_var.set("База Русе")
         ZaraExApp.update_selection_info(self.subject)
         self.assertEqual(
             self.subject.selection_info_var.get(),
-            "Вид гориво: Биодизел   |   Код по КН: 38260010"
+            "Вид гориво: БИОДИЗЕЛ   |   Код по КН: 38260010"
             "   |   База на товарене: База Русе",
         )
 

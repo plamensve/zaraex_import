@@ -405,11 +405,20 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             sticky="ew", padx=6, pady=(0, 8)
         )
         self.selection_info_var = tk.StringVar()
-        ttk.Label(
-            form, textvariable=self.selection_info_var
-        ).grid(
+        # The full catalogue name can be long; wrap instead of clipping it.
+        info_label = ttk.Label(
+            form, textvariable=self.selection_info_var, wraplength=1050,
+            justify="left"
+        )
+        info_label.grid(
             row=5, column=0, columnspan=LOADING_FORM_COLUMNS,
-            sticky="w", padx=6, pady=(0, 2)
+            sticky="ew", padx=6, pady=(0, 2)
+        )
+        form.bind(
+            "<Configure>",
+            lambda event: info_label.configure(
+                wraplength=max(360, event.width - 40)
+            ),
         )
 
         # Records table
@@ -1288,16 +1297,16 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.driver_var.set("")
 
     def update_selection_info(self):
-        """Show only the selected fuel kind, CN code and loading base."""
+        """Show the full selected product name, CN code and loading base."""
         product = self.get_product_by_name(self.product_var.get())
         base = self.get_base_by_name(self.base_var.get())
 
-        fuel_kind = product.get("fuel_kind") if product else None
+        fuel_name = product.get("name") if product else None
         kn_code = product.get("kn_code") if product else None
         base_name = base.get("name") if base else None
 
         self.selection_info_var.set(
-            f"Вид гориво: {fuel_kind or '-'}"
+            f"Вид гориво: {fuel_name or '-'}"
             f"   |   Код по КН: {kn_code or '-'}"
             f"   |   База на товарене: {base_name or '-'}"
         )

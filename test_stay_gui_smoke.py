@@ -12,6 +12,51 @@ from unittest.mock import patch
 @unittest.skipUnless(sys.platform == "win32" or os.environ.get("DISPLAY"),
                      "Requires a Tk display")
 class EmbeddedStayGuiSmokeTests(unittest.TestCase):
+    def test_saved_address_card_can_edit_apply_and_delete(self):
+        from app import ZaraExApp
+        from nap_stay import eStayGen as stay
+
+        saved = {
+            "company": "Тест транспорт", "region_code": "SOF",
+            "municipality_code": "SOF46", "city_code": "68134",
+            "address": "ул. Примерна", "number": "12",
+        }
+        for key, catalogue in (("region", stay.DOMAIN_DICT),
+                               ("municipality", stay.MUNICIPALITY_DICT),
+                               ("city", stay.CITY_DICT)):
+            saved[key] = next(name for name, code in catalogue.items()
+                              if code == saved[key + "_code"])
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"LOCALAPPDATA": directory}):
+                path = stay.saved_addresses_path()
+                with open(path, "w", encoding="utf-8") as file:
+                    json.dump([saved, {}, {}, {}, {}], file)
+                app = ZaraExApp()
+                try:
+                    app.open_workspace("stay")
+                    app.update()
+                    row = app.stay_tab.stay_content.saved_address_rows[0]
+                    self.assertFalse(row["address"].winfo_ismapped())
+                    row["toggle_button"].invoke()
+                    app.update()
+                    self.assertTrue(row["address"].winfo_ismapped())
+                    row["address"].delete(0, tk.END)
+                    row["address"].insert(0, "ул. Нов адрес")
+                    row["address"].event_generate("<FocusOut>")
+                    with open(path, encoding="utf-8") as file:
+                        self.assertEqual(json.load(file)[0]["address"], "ул. Нов адрес")
+                    actions = row["toggle_button"].master.winfo_children()
+                    next(w for w in actions if w.cget("text") == "Приложи адрес").invoke()
+                    self.assertEqual(stay.address_entry.get(), "ул. Нов адрес")
+                    self.assertEqual(stay.number_entry.get(), "12")
+                    self.assertEqual(stay.city_code_var.get(), "68134")
+                    next(w for w in actions if w.cget("text") == "Изтрий адрес").invoke()
+                    with open(path, encoding="utf-8") as file:
+                        self.assertEqual(json.load(file)[0], {})
+                    self.assertEqual(stay.address_entry.get(), "ул. Нов адрес")
+                finally:
+                    app.close_application()
+
     def test_tabs_and_original_estay_controls_open_in_single_window(self):
         from app import ZaraExApp
         from nap_stay import eStayGen as stay

@@ -109,16 +109,21 @@ class AutocompleteEntry(tk.Entry):
 
     def show_listbox(self):
         if not self.listbox:
-            self.listbox = tk.Listbox(self.root, width=self["width"])
+            self.listbox = tk.Listbox(
+                self.root, font=self.cget("font"), height=7, bg="white", fg="#172D49",
+                selectbackground="#087F75", selectforeground="white",
+                relief="flat", borderwidth=0, highlightthickness=1,
+                highlightbackground="#DBE4EF", activestyle="none", exportselection=False,
+            )
             x = self.winfo_rootx() - self.root.winfo_rootx()
             y = self.winfo_rooty() - self.root.winfo_rooty() + self.winfo_height()
-            self.listbox.place(x=x, y=y)
+            self.listbox.place(x=x, y=y, width=max(240, self.winfo_width()))
             self.listbox.bind("<Button-1>", self.selection)
             self.listbox.bind("<Return>", self.selection)
         else:
             x = self.winfo_rootx() - self.root.winfo_rootx()
             y = self.winfo_rooty() - self.root.winfo_rooty() + self.winfo_height()
-            self.listbox.place(x=x, y=y)
+            self.listbox.place(x=x, y=y, width=max(240, self.winfo_width()))
             self.listbox.lift()
 
     def hide_listbox(self):
@@ -337,11 +342,7 @@ def saved_addresses_path():
 
 
 def mount_stay_declarations(parent):
-    """Embed E_STAY_GEN (upstream eddbc04db66bc6486ef4e86e909bfb9e6c895faa).
-
-    Original XML transformation, autocomplete, date controls, saved addresses,
-    and form behavior are retained; window lifecycle is controlled by ZaraEx.
-    """
+    """Mount the styled NRA workspace while retaining the original XML workflow."""
     global date_entry, region_entry, municipality_entry, city_entry
     global region_code_var, municipality_code_var, city_code_var
     global address_entry, number_entry, file_label, save_label
@@ -349,230 +350,159 @@ def mount_stay_declarations(parent):
     selected_file = None
     output_file_path = None
     root = parent
-    # --- Въвеждане на нови стойности за ширини ---
-    FIELD_WIDTH = 18
-    CODE_WIDTH = 6
-    ADDRESS_WIDTH = 40
-    NUMBER_WIDTH = 16
-    DATE_WIDTH = 26
-
-    # --- Създаване на прозорец (ТРЯБВА ДА Е ПРЕДИ ВСЯКА УПОТРЕБА НА root) ---
-
-    # Глобални настройки за размери и шрифт
-    ENTRY_WIDTH = 18
-    ENTRY_FONT = ("Arial", 14)
-    ENTRY_PADX = 5
-    ENTRY_PADY = 8
-    CODE_WIDTH = 6
-    CODE_FONT = ("Arial", 14)
-    BTN_FONT = ("Arial", 16, "bold")
-
-    # --- UI ---
-    title = tk.Label(root, text="Генератор на XML за НАП - ЕДД за престой", font=("Arial", 16, "bold"))
-    title.pack(pady=10)
-
-    # (Премахнато: старо поле и label за дата)
-
-    file_label = tk.Label(root, text="Няма избран файл", font=("Arial", 12))
-    file_label.pack(pady=5)
-
-    button_frame = tk.Frame(root)
-    button_frame.pack(pady=5)
-
-    browse_btn = tk.Button(button_frame, text="Избери входен файл ЕДП", command=browse_file, font=("Arial", 12))
-    browse_btn.pack(side=tk.LEFT, padx=10)
-
-    save_btn = tk.Button(button_frame, text="Избери място за запис", command=choose_save_location, font=("Arial", 12))
-    save_btn.pack(side=tk.LEFT, padx=10)
-
-    save_label = tk.Label(root)
-    save_label.pack(pady=5)
-
-    location_label = tk.Label(root, text="Място за престой", font=("Arial", 14, "bold"))
-    location_label.pack(pady=(20, 5))
-
-    row1_frame = tk.Frame(root)
-    row1_frame.pack(pady=12)
-
-    FIELD_WIDTH = 18
-    CODE_WIDTH = 6
-    FIELD_FONT = ("Arial", 14)
-    CODE_FONT = ("Arial", 14)
-
-    # Област
-    region_entry = AutocompleteEntry(DOMAIN_LIST, row1_frame, font=FIELD_FONT, width=FIELD_WIDTH)
-    region_entry.grid(row=0, column=0, padx=12, pady=6, sticky="ew")
-    region_entry.insert(0, "   Област")
-
-
-    def clear_region_placeholder(event):
-        if region_entry.get().strip() == "Област" or region_entry.get().strip() == "":
-            region_entry.delete(0, tk.END)
-            region_entry.config(fg="black")
-
-
-    region_entry.bind("<FocusIn>", clear_region_placeholder)
-
-
-    def restore_region_placeholder(event):
-        if region_entry.get().strip() == "":
-            region_entry.insert(0, "   Област")
-            region_entry.config(fg="gray")
-
-
-    region_entry.bind("<FocusOut>", restore_region_placeholder)
-    region_entry.config(fg="gray")
-    region_code_var = tk.StringVar()
-    region_code_entry = tk.Entry(row1_frame, font=CODE_FONT, width=CODE_WIDTH, textvariable=region_code_var,
-                                 state='readonly', justify='center')
-    region_code_entry.grid(row=0, column=1, padx=(0, 12), pady=6, sticky="ew")
-
-
-    def on_region_select(value):
-        region_code_var.set(DOMAIN_DICT.get(value, ''))
-
-
-    region_entry.set_on_select(on_region_select)
-
-    # Община
-    municipality_entry = AutocompleteEntry(MUNICIPALITY_LIST, row1_frame, font=FIELD_FONT, width=FIELD_WIDTH)
-    municipality_entry.grid(row=0, column=2, padx=12, pady=6, sticky="ew")
-    municipality_entry.insert(0, "   Община")
-
-
-    def clear_municipality_placeholder(event):
-        if municipality_entry.get().strip() == "Община" or municipality_entry.get().strip() == "":
-            municipality_entry.delete(0, tk.END)
-            municipality_entry.config(fg="black")
-
-
-    municipality_entry.bind("<FocusIn>", clear_municipality_placeholder)
-
-
-    def restore_municipality_placeholder(event):
-        if municipality_entry.get().strip() == "":
-            municipality_entry.insert(0, "   Община")
-            municipality_entry.config(fg="gray")
-
-
-    municipality_entry.bind("<FocusOut>", restore_municipality_placeholder)
-    municipality_entry.config(fg="gray")
-    municipality_code_var = tk.StringVar()
-    municipality_code_entry = tk.Entry(row1_frame, font=CODE_FONT, width=CODE_WIDTH, textvariable=municipality_code_var,
-                                       state='readonly', justify='center')
-    municipality_code_entry.grid(row=0, column=3, padx=(0, 12), pady=6, sticky="ew")
-
-
-    def on_municipality_select(value):
-        municipality_code_var.set(MUNICIPALITY_DICT.get(value, ''))
-
-
-    municipality_entry.set_on_select(on_municipality_select)
-
-    # Населено място
-    city_entry = AutocompleteEntry(CITY_LIST, row1_frame, font=FIELD_FONT, width=FIELD_WIDTH)
-    city_entry.grid(row=0, column=4, padx=12, pady=6, sticky="ew")
-    city_entry.insert(0, "   Населено място")
-
-
-    def clear_city_placeholder(event):
-        if city_entry.get().strip() == "Населено място" or city_entry.get().strip() == "":
-            city_entry.delete(0, tk.END)
-            city_entry.config(fg="black")
-
-
-    city_entry.bind("<FocusIn>", clear_city_placeholder)
-
-
-    def restore_city_placeholder(event):
-        if city_entry.get().strip() == "":
-            city_entry.insert(0, "   Населено място")
-            city_entry.config(fg="gray")
-
-
-    city_entry.bind("<FocusOut>", restore_city_placeholder)
-    city_entry.config(fg="gray")
-    city_code_var = tk.StringVar()
-    city_code_entry = tk.Entry(row1_frame, font=CODE_FONT, width=CODE_WIDTH, textvariable=city_code_var, state='readonly',
-                               justify='center')
-    city_code_entry.grid(row=0, column=5, padx=(0, 12), pady=6, sticky="ew")
-
-
-    def on_city_select(value):
-        city_code_var.set(CITY_DICT.get(value, ''))
-
-
-    city_entry.set_on_select(on_city_select)
-
-    # Контейнер за ред 2: Дата, Адрес и Номер
-    row2_frame = tk.Frame(root)
-    row2_frame.pack(pady=12)
-
-    ADDRESS_WIDTH = 40
-    NUMBER_WIDTH = 16
-    DATE_WIDTH = 26  # по-голямо поле за дата
-
-    # Поле за дата (DateEntry) на първо място, по-голямо и подравнено с 'Област'
-    date_entry = DateEntry(row2_frame, font=("Arial", 12), width=DATE_WIDTH, date_pattern="dd.mm.yyyy")
-    date_entry.grid(row=0, column=0, padx=(0, 8), pady=6, sticky="ew")
-
-    # Адрес
-    address_entry = tk.Entry(row2_frame, font=FIELD_FONT, width=ADDRESS_WIDTH)
-    address_entry.grid(row=0, column=1, padx=(0, 8), pady=6, sticky="ew")
-    address_entry.insert(0, "   Адрес")
-
-
-    def clear_address_placeholder(event):
-        if address_entry.get().strip() == "Адрес" or address_entry.get().strip() == "":
-            address_entry.delete(0, tk.END)
-            address_entry.config(fg="black")
-
-
-    address_entry.bind("<FocusIn>", clear_address_placeholder)
-
-
-    def restore_address_placeholder(event):
-        if address_entry.get().strip() == "":
-            address_entry.insert(0, "   Адрес")
-            address_entry.config(fg="gray")
-
-
-    address_entry.bind("<FocusOut>", restore_address_placeholder)
-    address_entry.config(fg="gray")
-
-    # Номер
-    number_entry = tk.Entry(row2_frame, font=FIELD_FONT, width=NUMBER_WIDTH)
-    number_entry.grid(row=0, column=2, padx=(0, 8), pady=6, sticky="ew")
-    number_entry.insert(0, "№")
-
-
-    def clear_number_placeholder(event):
-        if number_entry.get().strip() == "№" or number_entry.get().strip() == "":
-            number_entry.delete(0, tk.END)
-            number_entry.config(fg="black")
-
-
-    number_entry.bind("<FocusIn>", clear_number_placeholder)
-
-
-    def restore_number_placeholder(event):
-        if number_entry.get().strip() == "":
-            number_entry.insert(0, "   №")
-            number_entry.config(fg="gray")
-
-
-    number_entry.bind("<FocusOut>", restore_number_placeholder)
-    number_entry.config(fg="gray")
-
-    # --- Премествам бутона най-отдолу ---
-    # След транспортните редове:
-    generate_btn = tk.Button(root, text="Генерирай XML", command=generate_output, font=("Arial", 14, "bold"), bg="#4CAF50",
-                             fg="white", width=14, height=1, cursor="arrow")
-    generate_btn.pack(pady=12)
-
-    # ТУК ПРЕМАХВАМ СТАРИЯ FOOTER:
-    # footer = tk.Label(root, text="2025 Plamen Svetoslavov eStayGen v1.0", font=("Arial", 10), fg="#888888")
-    # footer.pack(side=tk.BOTTOM, pady=8)
+    background = "#F4F7FB"
+    text_color = "#172D49"
+    muted = "#61718A"
+    accent = "#087F75"
+    border = "#DBE4EF"
+    root.configure(bg=background)
+    page = tk.Frame(root, bg=background)
+    page.pack(fill="both", expand=True, padx=24, pady=20)
+
+    def label(host, text, *, color=text_color, size=10, bold=False, bg="white"):
+        return tk.Label(host, text=text, bg=bg, fg=color, anchor="w",
+                        justify="left", font=("Segoe UI", size, "bold" if bold else "normal"))
+
+    def button(host, text, command, *, primary=False, danger=False):
+        normal = accent if primary else ("#FFF0F0" if danger else "#EAF4F2")
+        foreground = "white" if primary else ("#B33D45" if danger else accent)
+        hover = "#06675F" if primary else ("#FFE1E3" if danger else "#D8EDE8")
+        widget = tk.Button(host, text=text, command=command, bg=normal, fg=foreground,
+                           activebackground=hover, activeforeground=foreground,
+                           font=("Segoe UI", 10, "bold"), relief="flat", borderwidth=0,
+                           padx=14, pady=9, cursor="hand2", highlightthickness=1,
+                           highlightbackground=normal, highlightcolor=accent)
+        widget.bind("<Enter>", lambda event: widget.configure(bg=hover))
+        widget.bind("<Leave>", lambda event: widget.configure(bg=normal))
+        return widget
+
+    def section(title, subtitle):
+        card = tk.Frame(page, bg="white", highlightbackground=border, highlightthickness=1)
+        card.pack(fill="x", pady=(0, 14))
+        body = tk.Frame(card, bg="white")
+        body.pack(fill="x", padx=20, pady=16)
+        label(body, title, size=13, bold=True).pack(anchor="w")
+        label(body, subtitle, color=muted).pack(anchor="w", pady=(4, 12))
+        return body
+
+    def input_options():
+        return dict(font=("Segoe UI", 11), width=1, relief="flat", borderwidth=0,
+                    bg="#F8FAFD", fg=text_color, insertbackground=accent,
+                    highlightthickness=1, highlightbackground=border, highlightcolor=accent)
+
+    def placeholder(entry, text):
+        entry.insert(0, text)
+        entry.configure(fg=muted)
+        def clear(event):
+            if entry.get().strip() in (text, ""):
+                entry.delete(0, tk.END)
+                entry.configure(fg=text_color)
+        def restore(event):
+            if not entry.get().strip():
+                entry.insert(0, text)
+                entry.configure(fg=muted)
+        entry.bind("<FocusIn>", clear, add="+")
+        entry.bind("<FocusOut>", restore, add="+")
+
+    def location_field(host, column, title, values, catalogue, *, value=None, code=""):
+        cell = tk.Frame(host, bg="white")
+        cell.grid(row=0, column=column, sticky="ew", padx=(0, 12) if column < 2 else 0)
+        heading = tk.Frame(cell, bg="white")
+        heading.pack(fill="x", pady=(0, 5))
+        label(heading, title, bold=True).pack(side="left")
+        label(heading, "Код", color=muted, size=9).pack(side="right", padx=12)
+        inputs = tk.Frame(cell, bg="white")
+        inputs.pack(fill="x")
+        inputs.columnconfigure(0, weight=1)
+        entry = AutocompleteEntry(values, inputs, **input_options())
+        entry.grid(row=0, column=0, sticky="ew", ipady=7)
+        variable = tk.StringVar(value=code)
+        code_entry = tk.Entry(inputs, textvariable=variable, state="readonly", width=7,
+                              justify="center", font=("Segoe UI", 10), fg=accent,
+                              readonlybackground="#EAF4F2", relief="flat", borderwidth=0)
+        code_entry.grid(row=0, column=1, sticky="ns", padx=(6, 0), ipady=7)
+        entry.set_on_select(lambda selected: variable.set(catalogue.get(selected, "")))
+        if value and value.strip() != title:
+            entry.insert(0, value)
+        else:
+            placeholder(entry, title)
+        entry.hide_listbox()
+        return entry, variable, code_entry
+
+    def plain_field(host, column, title, hint, *, value=None, span=1):
+        cell = tk.Frame(host, bg="white")
+        cell.grid(row=0, column=column, columnspan=span, sticky="ew", padx=(0, 12) if column < 2 else 0)
+        label(cell, title, bold=True).pack(anchor="w", pady=(0, 5))
+        entry = tk.Entry(cell, **input_options())
+        entry.pack(fill="x", ipady=7)
+        if value and value.strip() != hint:
+            entry.insert(0, value)
+        else:
+            placeholder(entry, hint)
+        return entry
+
+    hero = tk.Frame(page, bg="#133B40")
+    hero.pack(fill="x", pady=(0, 16))
+    label(hero, "НАП – Декларации за престой", bg="#133B40", color="white",
+          size=20, bold=True).pack(anchor="w", padx=22, pady=(12, 6))
+    label(hero, "От входен ЕДП файл до готова XML декларация — в няколко стъпки.",
+          bg="#133B40", color="#C2DFDA", size=11).pack(anchor="w", padx=22, pady=(0, 12))
+
+    files = tk.Frame(page, bg=background)
+    files.pack(fill="x", pady=(0, 14))
+    for column in range(2):
+        files.columnconfigure(column, weight=1, uniform="files")
+    file_labels = []
+    for column, title, hint, action, command in (
+            (0, "1. Входен файл", "Изберете ЕДП XML", "Избери входен файл ЕДП", browse_file),
+            (1, "2. Изходен файл", "Изберете къде да запишете декларацията", "Избери място за запис", choose_save_location)):
+        card = tk.Frame(files, bg="white", highlightbackground=border, highlightthickness=1)
+        card.grid(row=0, column=column, sticky="nsew", padx=(0, 7) if column == 0 else (7, 0))
+        body = tk.Frame(card, bg="white")
+        body.pack(fill="both", expand=True, padx=18, pady=14)
+        toolbar = tk.Frame(body, bg="white")
+        toolbar.pack(fill="x")
+        label(toolbar, title, size=12, bold=True).pack(side="left")
+        button(toolbar, action, command).pack(side="right")
+        file_status = label(body, hint, color=muted)
+        file_status.pack(fill="x", pady=(8, 0))
+        body.bind("<Configure>", lambda event, widget=file_status:
+                  widget.configure(wraplength=max(120, event.width)))
+        file_labels.append(file_status)
+    file_label, save_label = file_labels
+
+    location = section("3. Място и дата на престой",
+                       "Въведете име и изберете от предложенията. Административните кодове се попълват автоматично.")
+    places = tk.Frame(location, bg="white")
+    places.pack(fill="x")
+    for column in range(3):
+        places.columnconfigure(column, weight=1, uniform="location")
+    region_entry, region_code_var, _ = location_field(places, 0, "Област", DOMAIN_LIST, DOMAIN_DICT)
+    municipality_entry, municipality_code_var, _ = location_field(places, 1, "Община", MUNICIPALITY_LIST, MUNICIPALITY_DICT)
+    city_entry, city_code_var, _ = location_field(places, 2, "Населено място", CITY_LIST, CITY_DICT)
+
+    address_row = tk.Frame(location, bg="white")
+    address_row.pack(fill="x", pady=(14, 0))
+    address_row.columnconfigure(0, weight=2, uniform="address")
+    address_row.columnconfigure(1, weight=5, uniform="address")
+    address_row.columnconfigure(2, weight=1, uniform="address")
+    date_cell = tk.Frame(address_row, bg="white")
+    date_cell.grid(row=0, column=0, sticky="ew", padx=(0, 12))
+    label(date_cell, "Дата на престой", bold=True).pack(anchor="w", pady=(0, 5))
+    date_entry = DateEntry(date_cell, font=("Segoe UI", 11), width=1,
+                           date_pattern="dd.mm.yyyy", style="NapStay.DateEntry",
+                           background=accent, foreground="white", borderwidth=0,
+                           headersbackground="#EAF4F2", headersforeground=text_color,
+                           selectbackground=accent, selectforeground="white")
+    date_entry.pack(fill="x", ipady=6)
+    address_entry = plain_field(address_row, 1, "Улица / местност", "Адрес")
+    number_entry = plain_field(address_row, 2, "Номер", "№")
+
+    actions = tk.Frame(page, bg="#E5F5F1", highlightbackground="#CBE5DE", highlightthickness=1)
+    actions.pack(fill="x", pady=(0, 22))
+    button(actions, "Генерирай XML", generate_output, primary=True).pack(side="right", padx=16, pady=12)
+    label(actions, "Подгответе декларацията", bg="#E5F5F1", color=accent,
+          size=11, bold=True).pack(side="left", padx=18)
 
     SAVED_ADDRESSES_PATH = saved_addresses_path()
 
@@ -594,20 +524,13 @@ def mount_stay_declarations(parent):
             json.dump(addresses, f, ensure_ascii=False, indent=2)
 
 
-    # --- Транспортни адреси ---
-    # Нови по-малки размери за транспортните редове
-    COMPANY_WIDTH_SMALL = 12
-    FIELD_WIDTH_SMALL = 10
-    CODE_WIDTH_SMALL = 5
-    ADDRESS_WIDTH_SMALL = 14
-    NUMBER_WIDTH_SMALL = 6
 
-    transport_frame = tk.Frame(root)
-    transport_frame.pack(pady=10)
-
+    saved_section = section("Запазени адреси", "Пет адресни шаблона за повторна употреба. Промените се запазват автоматично.")
+    transport_frame = tk.Frame(saved_section, bg="white")
+    transport_frame.pack(fill="x")
     transport_entries = []
+    root.saved_address_rows = transport_entries
     saved_addresses = load_saved_addresses()
-    # The saved-row apply button targets the main address fields (not the last row).
     region_entry_main = region_entry
     region_code_var_main = region_code_var
     municipality_entry_main = municipality_entry
@@ -617,114 +540,41 @@ def mount_stay_declarations(parent):
 
     for i in range(5):
         row = {}
-        row_frame = tk.Frame(transport_frame)
-        row_frame.pack(pady=2, fill='x')
-
-
-        # --- Placeholder logic for all fields ---
-        def make_placeholder(entry, placeholder):
-            def clear_placeholder(event, entry=entry, placeholder=placeholder):
-                if entry.get() == placeholder:
-                    entry.delete(0, tk.END)
-                    entry.config(fg="black")
-
-            def restore_placeholder(event, entry=entry, placeholder=placeholder):
-                if entry.get().strip() == "":
-                    entry.insert(0, placeholder)
-                    entry.config(fg="gray")
-
-            entry.bind("<FocusIn>", clear_placeholder)
-            entry.bind("<FocusOut>", restore_placeholder)
-            # При първоначално създаване
-            if entry.get().strip() == "":
-                entry.insert(0, placeholder)
-                entry.config(fg="gray")
-
-
-        # Транспортна фирма (първа колона)
-        row['company'] = tk.Entry(row_frame, font=("Arial", 12), width=COMPANY_WIDTH_SMALL)
-        row['company'].delete(0, tk.END)
-        row['company'].insert(0, saved_addresses[i].get('company', f"Тр. Фирма {i + 1}"))
-        row['company'].config(fg="gray" if not saved_addresses[i].get('company') else "black")
-        row['company'].grid(row=0, column=0, padx=2)
-        make_placeholder(row['company'], f"Тр. Фирма {i + 1}")
-
-        # Област
-        row['region'] = AutocompleteEntry(DOMAIN_LIST, row_frame, font=("Arial", 12), width=FIELD_WIDTH_SMALL)
-        row['region'].grid(row=0, column=1, padx=2)
-        row['region_code_var'] = tk.StringVar()
-        row['region_code'] = tk.Entry(row_frame, font=("Arial", 12), width=8, textvariable=row['region_code_var'],
-                                      state='readonly', justify='center')
-        row['region_code'].grid(row=0, column=2, padx=2)
-
-
-        def on_region_select_local(value, var=row['region_code_var']):
-            var.set(DOMAIN_DICT.get(value, ''))
-
-
-        row['region'].set_on_select(on_region_select_local)
-        row['region'].delete(0, tk.END)
-        row['region'].insert(0, saved_addresses[i].get('region', 'Област'))
-        row['region'].config(fg="gray" if not saved_addresses[i].get('region') else "black")
-        row['region_code_var'].set(saved_addresses[i].get('region_code', ''))
-        make_placeholder(row['region'], 'Област')
-
-        # Община
-        row['municipality'] = AutocompleteEntry(MUNICIPALITY_LIST, row_frame, font=("Arial", 12), width=FIELD_WIDTH_SMALL)
-        row['municipality'].grid(row=0, column=3, padx=2)
-        row['municipality_code_var'] = tk.StringVar()
-        row['municipality_code'] = tk.Entry(row_frame, font=("Arial", 12), width=8,
-                                            textvariable=row['municipality_code_var'], state='readonly', justify='center')
-        row['municipality_code'].grid(row=0, column=4, padx=2)
-
-
-        def on_municipality_select_local(value, var=row['municipality_code_var']):
-            var.set(MUNICIPALITY_DICT.get(value, ''))
-
-
-        row['municipality'].set_on_select(on_municipality_select_local)
-        row['municipality'].delete(0, tk.END)
-        row['municipality'].insert(0, saved_addresses[i].get('municipality', 'Община'))
-        row['municipality'].config(fg="gray" if not saved_addresses[i].get('municipality') else "black")
-        row['municipality_code_var'].set(saved_addresses[i].get('municipality_code', ''))
-        make_placeholder(row['municipality'], 'Община')
-
-        # Населено място
-        row['city'] = AutocompleteEntry(CITY_LIST, row_frame, font=("Arial", 12), width=FIELD_WIDTH_SMALL)
-        row['city'].grid(row=0, column=5, padx=2)
-        row['city_code_var'] = tk.StringVar()
-        row['city_code'] = tk.Entry(row_frame, font=("Arial", 12), width=8, textvariable=row['city_code_var'],
-                                    state='readonly', justify='center')
-        row['city_code'].grid(row=0, column=6, padx=2)
-
-
-        def on_city_select_local(value, var=row['city_code_var']):
-            var.set(CITY_DICT.get(value, ''))
-
-
-        row['city'].set_on_select(on_city_select_local)
-        row['city'].delete(0, tk.END)
-        row['city'].insert(0, saved_addresses[i].get('city', 'Населено място'))
-        row['city'].config(fg="gray" if not saved_addresses[i].get('city') else "black")
-        row['city_code_var'].set(saved_addresses[i].get('city_code', ''))
-        make_placeholder(row['city'], 'Населено място')
-
-        # Адрес
-        row['address'] = tk.Entry(row_frame, font=("Arial", 12), width=ADDRESS_WIDTH_SMALL)
-        row['address'].delete(0, tk.END)
-        row['address'].insert(0, saved_addresses[i].get('address', f"Адрес {i + 1}"))
-        row['address'].config(fg="gray" if not saved_addresses[i].get('address') else "black")
-        row['address'].grid(row=0, column=7, padx=2)
-        make_placeholder(row['address'], f"Адрес {i + 1}")
-
-        # Номер
-        row['number'] = tk.Entry(row_frame, font=("Arial", 12), width=NUMBER_WIDTH_SMALL)
-        row['number'].delete(0, tk.END)
-        row['number'].insert(0, saved_addresses[i].get('number', f"№{i + 1}"))
-        row['number'].config(fg="gray" if not saved_addresses[i].get('number') else "black")
-        row['number'].grid(row=0, column=8, padx=2)
-        make_placeholder(row['number'], f"№{i + 1}")
-
+        card = tk.Frame(transport_frame, bg="white", highlightbackground=border, highlightthickness=1)
+        card.pack(fill="x", pady=(0, 10))
+        row_frame = tk.Frame(card, bg="white")
+        row_frame.pack(fill="x", padx=14, pady=12)
+        label(row_frame, f"{i + 1:02d}", color=accent, bold=True, size=12).pack(side="left", padx=(0, 12))
+        company_cell = tk.Frame(row_frame, bg="white")
+        company_cell.pack(side="left", fill="x", expand=True, padx=(0, 16))
+        label(company_cell, "Транспортна фирма", color=muted, size=9).pack(anchor="w", pady=(0, 3))
+        row['company'] = tk.Entry(company_cell, **input_options())
+        row['company'].pack(fill="x", ipady=5)
+        if saved_addresses[i].get('company') and saved_addresses[i]['company'] != f"Тр. Фирма {i + 1}":
+            row['company'].insert(0, saved_addresses[i]['company'])
+        else:
+            placeholder(row['company'], f"Тр. Фирма {i + 1}")
+        row_actions = tk.Frame(row_frame, bg="white")
+        row_actions.pack(side="right")
+        details = tk.Frame(card, bg="white")
+        fields = tk.Frame(details, bg="white")
+        fields.pack(fill="x", pady=(0, 12))
+        for column in range(3):
+            fields.columnconfigure(column, weight=1, uniform="saved_location")
+        for column, key, title, values, catalogue in (
+                (0, 'region', 'Област', DOMAIN_LIST, DOMAIN_DICT),
+                (1, 'municipality', 'Община', MUNICIPALITY_LIST, MUNICIPALITY_DICT),
+                (2, 'city', 'Населено място', CITY_LIST, CITY_DICT)):
+            row[key], row[key + '_code_var'], row[key + '_code'] = location_field(
+                fields, column, title, values, catalogue,
+                value=saved_addresses[i].get(key), code=saved_addresses[i].get(key + '_code', ''))
+        address_fields = tk.Frame(details, bg="white")
+        address_fields.pack(fill="x")
+        for column, weight in enumerate((1, 4, 1)):
+            address_fields.columnconfigure(column, weight=weight, uniform="saved_address")
+        row['address'] = plain_field(address_fields, 0, "Улица / местност", f"Адрес {i + 1}",
+                                     value=saved_addresses[i].get('address'), span=2)
+        row['number'] = plain_field(address_fields, 2, "Номер", f"№{i + 1}", value=saved_addresses[i].get('number'))
 
         def apply_address(
                 region_entry=row['region'], region_code_var=row['region_code_var'],
@@ -774,11 +624,6 @@ def mount_stay_declarations(parent):
             number_entry.config(fg="black")
 
 
-        apply_btn = tk.Button(row_frame, text="Приложи адрес", font=("Arial", 9), width=13, command=apply_address,
-                              bg="#2196F3", fg="white")
-        apply_btn.grid(row=0, column=11, padx=8)
-
-
         def clear_row(idx=i):
             for key, entry in transport_entries[idx].items():
                 if isinstance(entry, tk.Entry):
@@ -813,10 +658,26 @@ def mount_stay_declarations(parent):
             save_addresses(saved_addresses)
 
 
-        del_btn = tk.Button(row_frame, text="Изтрий адрес", font=("Arial", 9), width=13, command=clear_row, bg="#F44336",
-                            fg="white")
-        del_btn.grid(row=0, column=12, padx=8)
 
+        def toggle_details(frame=details, widgets=row):
+            if frame.winfo_manager():
+                frame.pack_forget()
+                widgets['toggle_button'].configure(text="Редактирай")
+            else:
+                frame.pack(fill="x", padx=14, pady=(0, 16))
+                widgets['toggle_button'].configure(text="Скрий полетата")
+        def apply_saved_address(callback=apply_address):
+            callback()
+            for entry in (region_entry_main, municipality_entry_main, city_entry_main):
+                entry.hide_listbox()
+            if isinstance(root.master, tk.Canvas):
+                root.master.yview_moveto(0)
+            date_entry.focus_set()
+
+        button(row_actions, "Приложи адрес", apply_saved_address, primary=True).pack(side="left", padx=(0, 8))
+        row['toggle_button'] = button(row_actions, "Редактирай", toggle_details)
+        row['toggle_button'].pack(side="left", padx=(0, 8))
+        button(row_actions, "Изтрий адрес", clear_row, danger=True).pack(side="left")
 
         # --- Автоматично запазване при промяна ---
         def save_row(event=None, idx=i, row=row):
@@ -837,18 +698,9 @@ def mount_stay_declarations(parent):
 
 
         for key in ['region', 'municipality', 'city', 'company', 'address', 'number']:
-            row[key].bind('<FocusOut>', save_row)
+            row[key].bind('<FocusOut>', save_row, add='+')
 
         transport_entries.append(row)
-
-
-    def on_btn_enter(event):
-        generate_btn.config(cursor="hand2")
-
-
-    def on_btn_leave(event):
-        generate_btn.config(cursor="arrow")
-
 
     def on_close():
         for idx, row in enumerate(transport_entries):
@@ -864,15 +716,6 @@ def mount_stay_declarations(parent):
                 'number': row['number'].get().strip(),
             }
         save_addresses(saved_addresses)
-
-
-
-
-    generate_btn.bind("<Enter>", on_btn_enter)
-    generate_btn.bind("<Leave>", on_btn_leave)
-
-    # --- Footer -----
-    # Най-отдолу:
 
 
 

@@ -73,7 +73,7 @@ class EditingTests(unittest.TestCase):
 
     def record_subject(self):
         subject = SimpleNamespace(store=SimpleNamespace(data=self.data), records=[{"ukn": "old"}], editing_record_index=0)
-        values = dict(date="07.10.2026", ukn="00001", add="00002", quantity="100,5", zara="03", product="Diesel", company="Transport", vehicle="Truck", driver="Driver", base="Base")
+        values = dict(date="07.10.2026", ukn="00001", add="00002", quantity="100,5", zara="03", product="Diesel", company="Transport", vehicle="Truck", driver="Driver", base="Base", handover_name="Fuel depot employee", handover_egn="0001234567")
         for key, value in values.items():
             setattr(subject, key + "_var", Variable(value))
         subject.get_product_by_name = lambda name: self.data["products"][0]
@@ -91,6 +91,8 @@ class EditingTests(unittest.TestCase):
         self.assertEqual(subject.records[0]["quantity"], 100.5)
         self.assertEqual(subject.records[0]["ukn"], "00001")
         self.assertEqual(subject.records[0]["driver_egn"], "0012345678")
+        self.assertEqual(subject.records[0]["handover_name"], "Fuel depot employee")
+        self.assertEqual(subject.records[0]["handover_egn"], "0001234567")
         self.assertEqual(subject.records[0]["date"], datetime(2026, 10, 7))
         subject.finish_record_edit.assert_called_once()
 
@@ -101,6 +103,32 @@ class EditingTests(unittest.TestCase):
             ZaraExApp.add_record(subject)
         self.assertEqual(subject.records, [{"ukn": "old"}])
         subject.finish_record_edit.assert_not_called()
+
+    def test_driver_is_used_only_when_user_clicks_fallback_button(self):
+        subject = self.record_subject()
+        self.assertEqual(subject.handover_name_var.get(), "Fuel depot employee")
+        ZaraExApp.use_driver_as_handover(subject)
+        self.assertEqual(subject.handover_name_var.get(), "Driver")
+        self.assertEqual(subject.handover_egn_var.get(), "0012345678")
+
+    def test_missing_handover_details_do_not_save_record(self):
+        subject = self.record_subject()
+        subject.handover_name_var.set("")
+        subject.handover_egn_var.set("")
+        with patch("app.messagebox.showerror") as error:
+            ZaraExApp.add_record(subject)
+        self.assertEqual(subject.records, [{"ukn": "old"}])
+        self.assertIn("Попълни име и ЕГН", error.call_args.args[1])
+
+    def test_invalid_handover_egn_does_not_save_record(self):
+        for invalid_egn in ("123", "123456789X", "１２３４５６７８９０"):
+            with self.subTest(egn=invalid_egn):
+                subject = self.record_subject()
+                subject.handover_egn_var.set(invalid_egn)
+                with patch("app.messagebox.showerror") as error:
+                    ZaraExApp.add_record(subject)
+                self.assertEqual(subject.records, [{"ukn": "old"}])
+                self.assertIn("точно 10 цифри", error.call_args.args[1])
 
     def test_delete_cancel_preserves_records_and_edit_state(self):
         subject = self.record_subject()
@@ -121,12 +149,56 @@ class EditingTests(unittest.TestCase):
     def test_draft_records_survive_store_restart(self):
         with tempfile.TemporaryDirectory() as directory, patch("app.__file__", directory + "/app.py"):
             store = DataStore()
-            original = {"date": datetime(2026, 10, 8), "quantity": 125.5, "ukn": "0000123", "add_no": "0004"}
+            original = {"date": datetime(2026, 10, 8), "quantity": 125.5, "ukn": "0000123", "add_no": "0004", "handover_name": "Depot employee", "handover_egn": "0001234567"}
             subject = SimpleNamespace(store=store, records=[original])
             store.data["draft_records"] = [ZaraExApp.serialize_draft_record(original)]
             store.save()
             restored = ZaraExApp.load_draft_records(SimpleNamespace(store=DataStore()))
             self.assertEqual(restored, [original])
+
+    def test_edit_existing_loading_preserves_distinct_handover_details(self):
+        subject = self.record_subject()
+        subject.records[0] = {
+            "date": datetime(2026, 10, 7), "ukn": "00001", "add_no": "00002",
+            "quantity": 100.5, "zara_code": "03", "product_name": "Diesel",
+            "company_name": "Transport", "base_name": "Base", "vehicle": "Truck",
+            "driver_name": "Driver", "driver_egn": "0012345678",
+            "handover_name": "Depot employee", "handover_egn": "0001234567",
+        }
+        subject.records_tree = Mock()
+        subject.records_tree.selection.return_value = ("item",)
+        subject.records_tree.item.return_value = (1,)
+        subject.record_form_variables = lambda: SettingsEditorMixin.record_form_variables(subject)
+        subject.refresh_company_dependent_dropdowns = Mock()
+        subject.update_selection_info = Mock()
+        subject.record_save_button = Mock()
+        subject.record_cancel_button = Mock()
+        subject.record_edit_status = Variable()
+        SettingsEditorMixin.edit_selected_record(subject)
+        self.assertEqual(subject.handover_name_var.get(), "Depot employee")
+        self.assertEqual(subject.handover_egn_var.get(), "0001234567")
+        self.assertEqual(subject.editing_record_index, 0)
+
+    def test_edit_legacy_loading_uses_driver_as_handover(self):
+        subject = self.record_subject()
+        subject.records[0] = {
+            "date": datetime(2026, 10, 7), "ukn": "00001", "add_no": "00002",
+            "quantity": 100.5, "zara_code": "03", "product_name": "Diesel",
+            "company_name": "Transport", "base_name": "Base", "vehicle": "Truck",
+            "driver_name": "Driver", "driver_egn": "0012345678",
+        }
+        subject.records_tree = Mock()
+        subject.records_tree.selection.return_value = ("item",)
+        subject.records_tree.item.return_value = (1,)
+        subject.record_form_variables = lambda: SettingsEditorMixin.record_form_variables(subject)
+        subject.refresh_company_dependent_dropdowns = Mock()
+        subject.update_selection_info = Mock()
+        subject.record_save_button = Mock()
+        subject.record_cancel_button = Mock()
+        subject.record_edit_status = Variable()
+        SettingsEditorMixin.edit_selected_record(subject)
+        self.assertEqual(subject.handover_name_var.get(), "Driver")
+        self.assertEqual(subject.handover_egn_var.get(), "0012345678")
 
     def test_cancel_edit_restores_form_without_changing_record(self):
         subject = self.record_subject()

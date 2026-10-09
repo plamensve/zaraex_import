@@ -127,7 +127,8 @@ class SettingsEditorMixin:
 
     def record_form_variables(self):
         return {key: getattr(self, key + "_var") for key in (
-            "date", "ukn", "add", "quantity", "zara", "product", "company", "vehicle", "driver", "base"
+            "date", "ukn", "add", "quantity", "zara", "product", "company", "vehicle", "driver", "base",
+            "handover_name", "handover_egn"
         )}
 
     def edit_selected_record(self):
@@ -145,6 +146,8 @@ class SettingsEditorMixin:
             "add": record["add_no"], "quantity": str(record["quantity"]), "zara": record["zara_code"],
             "product": record["product_name"], "company": record["company_name"], "base": record["base_name"],
             "vehicle": record["vehicle"], "driver": record["driver_name"],
+            "handover_name": record.get("handover_name") or record["driver_name"],
+            "handover_egn": record.get("handover_egn") or record["driver_egn"],
         }
         for key, var in self.record_form_variables().items():
             var.set(values[key])

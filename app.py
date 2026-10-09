@@ -316,6 +316,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.vehicle_var = tk.StringVar()
         self.driver_var = tk.StringVar()
         self.base_var = tk.StringVar()
+        self.handover_name_var = tk.StringVar()
+        self.handover_egn_var = tk.StringVar()
 
         # Row 0
         self.add_entry(form, "Дата", self.date_var, 0, 0, 16)
@@ -405,6 +407,34 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             sticky="ew", padx=(0, 15), pady=8
         )
 
+        # These fields describe the person handing over the fuel, not the driver
+        # who accepted it. Each label and entry share a compact grid cell.
+        handover_name_frame = ttk.Frame(form)
+        handover_name_frame.grid(
+            row=2, column=4, columnspan=2,
+            sticky="ew", padx=(5, 15), pady=4
+        )
+        ttk.Label(handover_name_frame, text="Име на предал горивото").pack(anchor="w")
+        ttk.Entry(
+            handover_name_frame, textvariable=self.handover_name_var, width=28
+        ).pack(fill="x", pady=(3, 0))
+
+        handover_egn_frame = ttk.Frame(form)
+        handover_egn_frame.grid(
+            row=2, column=6, columnspan=2,
+            sticky="ew", padx=(5, 15), pady=4
+        )
+        ttk.Label(handover_egn_frame, text="ЕГН на предал горивото").pack(anchor="w")
+        ttk.Entry(
+            handover_egn_frame, textvariable=self.handover_egn_var, width=19
+        ).pack(fill="x", pady=(3, 0))
+
+        ttk.Button(
+            form,
+            text="Използвай шофьора",
+            command=self.use_driver_as_handover,
+        ).grid(row=3, column=4, columnspan=4, sticky="w", padx=5, pady=(1, 6))
+
         self.record_save_button = ttk.Button(
             form,
             text="Добави товарене",
@@ -422,7 +452,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             form,
             textvariable=self.selection_info_var
         ).grid(
-            row=3, column=0, columnspan=10,
+            row=4, column=0, columnspan=10,
             sticky="w", padx=5, pady=(4, 0)
         )
 
@@ -468,6 +498,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "company",
             "vehicle",
             "driver",
+            "handover",
             "zara",
             "edit_action",
             "delete_action",
@@ -492,6 +523,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "company": "Транспортна фирма",
             "vehicle": "МПС",
             "driver": "Шофьор",
+            "handover": "Предал горивото",
             "zara": "Код ЗАРА",
             "edit_action": "Редакция",
             "delete_action": "Премахване",
@@ -509,6 +541,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "company": 220,
             "vehicle": 135,
             "driver": 200,
+            "handover": 210,
             "zara": 120,
             "edit_action": 100,
             "delete_action": 100,
@@ -1400,6 +1433,18 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
     # RECORDS
     # ========================================================
 
+    def use_driver_as_handover(self):
+        """Copy the selected driver's details only when explicitly requested."""
+        company = self.get_company_by_name(self.company_var.get())
+        driver = self.get_driver_by_name_and_company(
+            self.driver_var.get(), company.get("eik", "") if company else ""
+        )
+        if not driver:
+            messagebox.showwarning("Липсва шофьор", "Първо избери шофьор.")
+            return
+        self.handover_name_var.set(driver["name"])
+        self.handover_egn_var.set(driver["egn"])
+
     def add_record(self):
         try:
             date_value = datetime.strptime(
@@ -1499,6 +1544,22 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             )
             return
 
+        handover_name = self.handover_name_var.get().strip()
+        handover_egn = self.handover_egn_var.get().strip()
+        if not handover_name or not handover_egn:
+            messagebox.showerror(
+                "Липсват данни за предал горивото",
+                "Попълни име и ЕГН на човека, предал горивото, "
+                "или натисни „Използвай шофьора“."
+            )
+            return
+        if len(handover_egn) != 10 or not handover_egn.isascii() or not handover_egn.isdigit():
+            messagebox.showerror(
+                "Невалидно ЕГН",
+                "ЕГН на предалия горивото трябва да съдържа точно 10 цифри."
+            )
+            return
+
         try:
             base_address = validate_address(base.get("address", {}))
         except ValueError as exc:
@@ -1528,6 +1589,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
             "driver_name": driver["name"],
             "driver_egn": driver["egn"],
+            "handover_name": handover_name,
+            "handover_egn": handover_egn,
 
             "base_name": base["name"],
             "base_eik": base["eik"],
@@ -1548,6 +1611,8 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.add_var.set("")
         self.quantity_var.set("")
         self.zara_var.set("")
+        self.handover_name_var.set("")
+        self.handover_egn_var.set("")
 
     def refresh_records_table(self):
         self.clear_tree(self.records_tree)
@@ -1574,6 +1639,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     r["company_name"],
                     r["vehicle"],
                     r["driver_name"],
+                    r.get("handover_name") or r["driver_name"],
                     r["zara_code"],
                     "✎ Редакция",
                     "✕ Премахни",
@@ -1724,7 +1790,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     text_style
                 )
 
-                # Driver: accepted / handed over
+                # Y–Z: person accepting fuel (driver).
                 self.write_text(
                     eadd, row, 24,
                     r["driver_name"],
@@ -1735,14 +1801,16 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                     r["driver_egn"],
                     text_style
                 )
+                # AA–AB: actual person handing over fuel. Older saved drafts
+                # without dedicated handover fields retain the driver fallback.
                 self.write_text(
                     eadd, row, 26,
-                    r["driver_name"],
+                    r.get("handover_name") or r["driver_name"],
                     text_style
                 )
                 self.write_text(
                     eadd, row, 27,
-                    r["driver_egn"],
+                    r.get("handover_egn") or r["driver_egn"],
                     text_style
                 )
 

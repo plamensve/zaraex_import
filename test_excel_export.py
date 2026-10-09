@@ -86,5 +86,77 @@ class IssuerEikExportTests(unittest.TestCase):
                 sheet.write.assert_any_call(1, 7, record["base_name"], "@")  # H
                 self.assertLessEqual(len(expected), 14)
 
+    def test_export_writes_depot_worker_to_aa_ab_but_driver_to_y_z(self):
+        from unittest.mock import Mock, patch
+        from app import ZaraExApp
+
+        address = {
+            "region": "Русе", "region_code": "RSE",
+            "municipality": "Бяла (Русе)", "municipality_code": "RSE04",
+            "city": "гр.Бяла (Русе)", "city_code": "07603",
+        }
+        record = {
+            "ukn": "00001", "add_no": "00002",
+            "date": datetime(2026, 10, 8), "fuel_kind": "diesel",
+            "kn_code": "27102011", "product_name": "Diesel", "quantity": 100.0,
+            "base_name": "Base", "base_eik": "00123", "base_address": address,
+            "company_name": "Transport", "company_eik": "000012345",
+            "vehicle": "Truck", "driver_name": "Driver", "driver_egn": "0012345678",
+            "handover_name": "Depot employee", "handover_egn": "0001234567",
+            "zara_code": "03",
+        }
+        workbook = Mock()
+        subject = SimpleNamespace(records=[record], write_text=ZaraExApp.write_text)
+        with (
+            patch("app.ExcelWorkbook", return_value=workbook),
+            patch("app.validate_address", return_value=address),
+            patch("app.filedialog.asksaveasfilename", return_value="generated.xls"),
+            patch("app.messagebox.showinfo") as showinfo,
+            patch("app.messagebox.showerror") as showerror,
+        ):
+            ZaraExApp.export_xls(subject)
+        showerror.assert_not_called()
+        showinfo.assert_called_once()
+        sheet = workbook.sheet.return_value
+        sheet.write.assert_any_call(1, 24, "Driver", "@")  # Y
+        sheet.write.assert_any_call(1, 25, "0012345678", "@")  # Z
+        sheet.write.assert_any_call(1, 26, "Depot employee", "@")  # AA
+        sheet.write.assert_any_call(1, 27, "0001234567", "@")  # AB
+
+    def test_legacy_record_export_keeps_driver_as_handover(self):
+        from unittest.mock import Mock, patch
+        from app import ZaraExApp
+
+        address = {
+            "region": "Русе", "region_code": "RSE",
+            "municipality": "Бяла (Русе)", "municipality_code": "RSE04",
+            "city": "гр.Бяла (Русе)", "city_code": "07603",
+        }
+        record = {
+            "ukn": "00001", "add_no": "00002",
+            "date": datetime(2026, 10, 8), "fuel_kind": "diesel",
+            "kn_code": "27102011", "product_name": "Diesel", "quantity": 100.0,
+            "base_name": "Base", "base_eik": "00123", "base_address": address,
+            "company_name": "Transport", "company_eik": "000012345",
+            "vehicle": "Truck", "driver_name": "Driver", "driver_egn": "0012345678",
+            "zara_code": "03",
+        }
+        workbook = Mock()
+        subject = SimpleNamespace(records=[record], write_text=ZaraExApp.write_text)
+        with (
+            patch("app.ExcelWorkbook", return_value=workbook),
+            patch("app.validate_address", return_value=address),
+            patch("app.filedialog.asksaveasfilename", return_value="generated.xls"),
+            patch("app.messagebox.showinfo") as showinfo,
+            patch("app.messagebox.showerror") as showerror,
+        ):
+            ZaraExApp.export_xls(subject)
+        showerror.assert_not_called()
+        showinfo.assert_called_once()
+        sheet = workbook.sheet.return_value
+        sheet.write.assert_any_call(1, 26, "Driver", "@")
+        sheet.write.assert_any_call(1, 27, "0012345678", "@")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -300,18 +300,33 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         tk.Label(
             header,
-            text="ZaraEx Import Generator",
+            text="ZaraEx Generator",
             bg="#17365D",
             fg="white",
             font=("Segoe UI", 20, "bold")
         ).pack(side="left", padx=24, pady=17)
 
+        self.home_button = tk.Button(
+            header, text="Начало", command=self.show_home,
+            font=("Segoe UI", 10, "bold"), bg="#284B75", fg="white",
+            activebackground="#365F8D", activeforeground="white",
+            relief="flat", borderwidth=0, padx=18, pady=9, cursor="hand2",
+        )
+        self.home_button.pack(side="right", padx=24)
+        self.workspace_title = tk.StringVar(value="Работно пространство")
+        tk.Label(
+            header, textvariable=self.workspace_title, bg="#17365D",
+            fg="#C8D8EC", font=("Segoe UI", 10),
+        ).pack(side="right", padx=8)
+
         # Pack before the expanding notebook to keep authorship visible
         # at the very bottom of the window in every application tab.
         self.build_footer()
 
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill="both", expand=True, padx=14, pady=14)
+        self.workspace = tk.Frame(self, bg="#F4F7FB")
+        self.workspace.pack(fill="both", expand=True)
+        self.home_page = tk.Frame(self.workspace, bg="#F4F7FB")
+        self.notebook = ttk.Notebook(self.workspace)
 
         self.main_tab = ttk.Frame(self.notebook)
         self.settings_tab = ttk.Frame(self.notebook)
@@ -326,7 +341,134 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         from nap_stay import create_stay_tab
         self.save_stay_addresses = create_stay_tab(self.stay_tab)
+        self.build_home_page()
+        self.show_home()
         self.protocol("WM_DELETE_WINDOW", self.close_application)
+
+    def show_home(self):
+        """Return to the launcher without rebuilding either module's widgets."""
+        self.notebook.pack_forget()
+        self.home_page.pack(fill="both", expand=True)
+        self.workspace_title.set("Работно пространство")
+        self.home_button.configure(state="disabled", disabledforeground="#AFC4DF")
+        self.module_buttons["import"].focus_set()
+
+    def open_workspace(self, module):
+        """Display only the selected module, retaining all pending form data."""
+        modules = {
+            "import": (self.main_tab, self.settings_tab),
+            "stay": (self.stay_tab,),
+        }
+        visible_tabs = modules[module]
+        self.home_page.pack_forget()
+        for tab in (self.main_tab, self.settings_tab, self.stay_tab):
+            self.notebook.tab(tab, state="normal" if tab in visible_tabs else "hidden")
+        self.notebook.select(visible_tabs[0])
+        self.notebook.pack(fill="both", expand=True, padx=14, pady=14)
+        self.workspace_title.set(
+            "Импортен файл" if module == "import" else "НАП – Декларации за престой"
+        )
+        self.home_button.configure(state="normal")
+        self.notebook.focus_set()
+
+    def build_home_page(self):
+        """SaaS-style module launcher built entirely with standard Tk widgets."""
+        background = "#F4F7FB"
+        content = tk.Frame(self.home_page, bg=background)
+        content.pack(fill="both", expand=True, padx=44, pady=(28, 20))
+
+        hero = tk.Frame(content, bg="#132E50")
+        hero.pack(fill="x")
+        tk.Label(
+            hero, text="ЕДНО ПРИЛОЖЕНИЕ · ДВА РАБОТНИ ПРОЦЕСА",
+            bg="#132E50", fg="#94B9EB", font=("Segoe UI", 9, "bold"),
+        ).pack(anchor="w", padx=28, pady=(22, 8))
+        tk.Label(
+            hero, text="Документите започват оттук.",
+            bg="#132E50", fg="white", font=("Segoe UI", 26, "bold"),
+        ).pack(anchor="w", padx=28)
+        tk.Label(
+            hero, text="Изберете какво искате да подготвите. Всичко необходимо е на едно място.",
+            bg="#132E50", fg="#C7D7EA", font=("Segoe UI", 11),
+        ).pack(anchor="w", padx=28, pady=(10, 24))
+
+        heading = tk.Frame(content, bg=background)
+        heading.pack(fill="x", pady=(24, 14))
+        tk.Label(
+            heading, text="Вашето работно пространство", bg=background,
+            fg="#172D49", font=("Segoe UI", 16, "bold"),
+        ).pack(side="left")
+        tk.Label(
+            heading, text="Изберете модул, за да продължите", bg=background,
+            fg="#61718A", font=("Segoe UI", 10),
+        ).pack(side="right")
+
+        cards = tk.Frame(content, bg=background)
+        cards.pack(fill="both", expand=True)
+        cards.columnconfigure(0, weight=1, uniform="module")
+        cards.columnconfigure(1, weight=1, uniform="module")
+        cards.rowconfigure(0, weight=1)
+        self.module_buttons = {}
+        self.build_module_card(
+            cards, column=0, module="import", badge="XLS", accent="#2563EB",
+            tint="#EAF1FF", title="Импортен файл за ZaraEx",
+            description="Подгответе товаренията и генерирайте\nExcel файл за импорт в ZaraEx.",
+            features="Товарения и чернови\nПродукти, фирми, МПС и петролни бази",
+            action="Отвори генератора  →",
+        )
+        self.build_module_card(
+            cards, column=1, module="stay", badge="XML", accent="#087F75",
+            tint="#E5F5F1", title="НАП – Декларации за престой",
+            description="Заредете ЕДП XML и подгответе\nдекларация за престой за НАП.",
+            features="Област, община и населено място\nЗапазени адреси и XML декларации",
+            action="Отвори декларациите  →",
+        )
+        tk.Label(
+            content, text="Можете да сменяте модула от „Начало“, без да губите въведените данни.",
+            bg=background, fg="#61718A", font=("Segoe UI", 10),
+        ).pack(anchor="w", pady=(16, 0))
+
+    def build_module_card(self, parent, *, column, module, badge, accent, tint,
+                          title, description, features, action):
+        card = tk.Frame(
+            parent, bg="white", highlightbackground="#DBE4EF", highlightthickness=1,
+        )
+        card.grid(row=0, column=column, sticky="nsew",
+                  padx=(0, 10) if column == 0 else (10, 0))
+        tk.Frame(card, bg=accent, height=4).pack(fill="x")
+        body = tk.Frame(card, bg="white")
+        body.pack(fill="both", expand=True, padx=24, pady=20)
+        tk.Label(
+            body, text=badge, bg=tint, fg=accent, padx=12, pady=6,
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w")
+        title_label = tk.Label(
+            body, text=title, bg="white", fg="#172D49", anchor="w",
+            justify="left", font=("Segoe UI", 17, "bold"),
+        )
+        title_label.pack(fill="x", pady=(14, 8))
+        description_label = tk.Label(
+            body, text=description, bg="white", fg="#53657E", anchor="w",
+            justify="left", font=("Segoe UI", 11),
+        )
+        description_label.pack(fill="x")
+        button = tk.Button(
+            body, text=action, command=lambda: self.open_workspace(module),
+            bg=accent, fg="white", activebackground=accent, activeforeground="white",
+            font=("Segoe UI", 11, "bold"), relief="flat", borderwidth=0,
+            padx=18, pady=11, cursor="hand2", anchor="w",
+        )
+        button.pack(side="bottom", fill="x", pady=(16, 0))
+        self.module_buttons[module] = button
+        tk.Label(
+            body, text=features, bg="white", fg="#61718A", anchor="w",
+            justify="left", font=("Segoe UI", 10),
+        ).pack(anchor="w", pady=(14, 0))
+        def resize_card(event):
+            for label in (title_label, description_label):
+                label.configure(wraplength=max(200, event.width))
+
+        body.bind("<Configure>", resize_card)
 
     def close_application(self):
         """Save both modules' data before closing the shared main window."""

@@ -214,5 +214,55 @@ class EditingTests(unittest.TestCase):
         subject.finish_record_edit.assert_called_once()
 
 
+class SelectionInfoTests(unittest.TestCase):
+    def setUp(self):
+        self.products = [
+            {"name": "Diesel", "fuel_kind": "Газьол - немаркиран", "kn_code": "27102011", "link_code": "31"},
+            {"name": "Biodiesel", "fuel_kind": "Биодизел", "kn_code": "38260010", "link_code": ""},
+        ]
+        self.bases = [
+            {"name": "ТОПЛИВО АД", "eik": "831924394"},
+            {"name": "База Русе", "eik": "123456789"},
+        ]
+        self.subject = SimpleNamespace(
+            product_var=Variable("Diesel"),
+            base_var=Variable("ТОПЛИВО АД"),
+            selection_info_var=Variable(),
+        )
+        self.subject.get_product_by_name = lambda name: next(
+            (product for product in self.products if product["name"] == name), None
+        )
+        self.subject.get_base_by_name = lambda name: next(
+            (base for base in self.bases if base["name"] == name), None
+        )
+
+    def test_display_contains_only_fuel_kind_cn_code_and_loading_base(self):
+        ZaraExApp.update_selection_info(self.subject)
+        self.assertEqual(
+            self.subject.selection_info_var.get(),
+            "Вид гориво: Газьол - немаркиран   |   Код по КН: 27102011"
+            "   |   База на товарене: ТОПЛИВО АД",
+        )
+
+    def test_display_updates_when_product_or_base_changes(self):
+        self.subject.product_var.set("Biodiesel")
+        self.subject.base_var.set("База Русе")
+        ZaraExApp.update_selection_info(self.subject)
+        self.assertEqual(
+            self.subject.selection_info_var.get(),
+            "Вид гориво: Биодизел   |   Код по КН: 38260010"
+            "   |   База на товарене: База Русе",
+        )
+
+    def test_missing_selection_does_not_show_stale_details(self):
+        self.subject.product_var.set("")
+        self.subject.base_var.set("")
+        ZaraExApp.update_selection_info(self.subject)
+        self.assertEqual(
+            self.subject.selection_info_var.get(),
+            "Вид гориво: -   |   Код по КН: -   |   База на товарене: -",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

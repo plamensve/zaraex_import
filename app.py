@@ -1349,48 +1349,19 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.driver_var.set("")
 
     def update_selection_info(self):
-        product = self.get_product_by_name(
-            self.product_var.get()
+        """Show only the selected fuel kind, CN code and loading base."""
+        product = self.get_product_by_name(self.product_var.get())
+        base = self.get_base_by_name(self.base_var.get())
+
+        fuel_kind = product.get("fuel_kind") if product else None
+        kn_code = product.get("kn_code") if product else None
+        base_name = base.get("name") if base else None
+
+        self.selection_info_var.set(
+            f"Вид гориво: {fuel_kind or '-'}"
+            f"   |   Код по КН: {kn_code or '-'}"
+            f"   |   База на товарене: {base_name or '-'}"
         )
-        company = self.get_company_by_name(
-            self.company_var.get()
-        )
-        driver = self.get_driver_by_name_and_company(
-            self.driver_var.get(),
-            company.get("eik", "") if company else ""
-        )
-        base = self.get_base_by_name(
-            self.base_var.get()
-        )
-
-        parts = []
-
-        if product:
-            parts.append(
-                f"Код за връзка: {product.get('link_code', '') or '-'}"
-            )
-            parts.append(
-                f"КН: {product.get('kn_code', '') or '-'}"
-            )
-
-        if company:
-            parts.append(
-                f"ЕИК транспорт: {company.get('eik', '')}"
-            )
-
-        if driver:
-            parts.append(
-                f"ЕГН шофьор: {driver.get('egn', '')}"
-            )
-
-        if base:
-            parts.append(
-                f"ЕИК база: {base.get('eik', '')}"
-            )
-            if base.get("address"):
-                parts.append(format_address(base["address"]))
-
-        self.selection_info_var.set("   |   ".join(parts))
 
     # ========================================================
     # LOOKUPS

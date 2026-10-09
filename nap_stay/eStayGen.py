@@ -58,20 +58,17 @@ class AutocompleteEntry(tk.Entry):
         self.lb_index = 0
         self.root = self.winfo_toplevel()
         self.on_select_callback = None
-        print(f"AutocompleteEntry loaded with {len(self.autocomplete_list)} items.")
 
     def set_on_select(self, callback):
         self.on_select_callback = callback
 
     def changed(self, *args):
-        print(f"Entry changed: '{self.var.get()}'")
         if self.var.get() == '':
             self.hide_listbox()
             if self.on_select_callback:
                 self.on_select_callback('')
         else:
             words = self.comparison()
-            print(f"Suggestions: {words}")
             if words:
                 self.show_listbox()
                 self.listbox.delete(0, tk.END)
@@ -135,7 +132,6 @@ class AutocompleteEntry(tk.Entry):
 
 
 def convert_xml(input_file, output_path):
-    print("[DEBUG] Започва генериране на stayTransportDeclaration XML...")
     tree = ET.parse(input_file)
     root = tree.getroot()
 
@@ -247,11 +243,9 @@ def convert_xml(input_file, output_path):
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(pretty_xml)
 
-        print(f"[DEBUG] XML файлът е записан успешно: {output_path}")
         return output_path
 
     except Exception as e:
-        print(f"[ERROR] {e}")
         raise ValueError(f"Грешка при обработката на XML: {e}")
 
 
@@ -273,13 +267,6 @@ def choose_save_location():
 
 
 def generate_output():
-    print("selected_file:", selected_file)
-    print("output_file_path:", output_file_path)
-    print("region_code:", region_code_var.get())
-    print("municipality_code:", municipality_code_var.get())
-    print("city_code:", city_code_var.get())
-    print("address:", address_entry.get())
-    print("number:", number_entry.get())
     if not selected_file:
         messagebox.showwarning("Липсва файл", "Моля, първо изберете XML файл.")
         return

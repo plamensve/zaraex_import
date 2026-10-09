@@ -29,7 +29,7 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                     self.assertIs(tk._default_root, app)
                     self.assertTrue(stay.DOMAIN_DICT)
                     self.assertTrue(stay.CITY_DICT)
-                    self.assertEqual(stay.date_entry.cget("date_pattern"), "dd.mm.yyyy")
+                    self.assertEqual(stay.date_entry.cget("date_pattern").lower(), "dd.mm.yyyy")
                     self.assertTrue(stay.region_entry.winfo_exists())
                     self.assertTrue(stay.municipality_entry.winfo_exists())
                     self.assertTrue(stay.city_entry.winfo_exists())

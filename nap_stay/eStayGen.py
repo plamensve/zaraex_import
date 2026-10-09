@@ -9,6 +9,10 @@ from tkcalendar import DateEntry
 import sys  # <-- добави този ред, ако още не съществува
 import json
 import shutil
+if __package__:
+    from .location_selector import LocationSelector, validate_location_codes
+else:
+    from location_selector import LocationSelector, validate_location_codes
 
 
 def resource_path(relative_path):
@@ -48,6 +52,7 @@ class AutocompleteEntry(tk.Entry):
     def __init__(self, autocomplete_list, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.autocomplete_list = sorted(autocomplete_list, key=str.lower)
+        self.on_change_callback = None
         self.var = self["textvariable"] = tk.StringVar()
         self.var.trace('w', self.changed)
         self.bind("<Down>", self.move_down)
@@ -63,9 +68,11 @@ class AutocompleteEntry(tk.Entry):
         self.on_select_callback = callback
 
     def changed(self, *args):
+        if self.on_change_callback:
+            self.on_change_callback()
         if self.var.get() == '':
             self.hide_listbox()
-            if self.on_select_callback:
+            if self.on_select_callback and not self.on_change_callback:
                 self.on_select_callback('')
         else:
             words = self.comparison()
@@ -76,12 +83,18 @@ class AutocompleteEntry(tk.Entry):
                     self.listbox.insert(tk.END, w)
                 self.lb_index = 0
                 self.listbox.select_set(self.lb_index)
+                self.listbox.activate(self.lb_index)
             else:
                 self.hide_listbox()
 
     def selection(self, event):
         if self.listbox and self.listbox.size() > 0:
-            value = self.listbox.get(tk.ACTIVE)
+            if event is not None and event.widget is self.listbox and event.type == tk.EventType.ButtonPress:
+                index = self.listbox.nearest(event.y)
+            else:
+                selected = self.listbox.curselection()
+                index = selected[0] if selected else self.lb_index
+            value = self.listbox.get(index)
             self.var.set(value)
             self.icursor(tk.END)
             self.hide_listbox()
@@ -174,6 +187,7 @@ def convert_xml(input_file, output_path):
 
         if not all([ukn_eADD, date, fuelAmount, fuelKNCode, domain, municipality, city, address, address_number]):
             raise ValueError("Липсват задължителни данни за генериране на XML!")
+        validate_location_codes(domain, municipality, city)
 
         nsmap = {"xsi": "http://www.w3.org/2001/XMLSchema-instance"}
         ET.register_namespace('xsi', nsmap['xsi'])
@@ -480,6 +494,10 @@ def mount_stay_declarations(parent):
     region_entry, region_code_var, _ = location_field(places, 0, "Област", DOMAIN_LIST, DOMAIN_DICT)
     municipality_entry, municipality_code_var, _ = location_field(places, 1, "Община", MUNICIPALITY_LIST, MUNICIPALITY_DICT)
     city_entry, city_code_var, _ = location_field(places, 2, "Населено място", CITY_LIST, CITY_DICT)
+    root.location_selector = LocationSelector(
+        {"region": region_entry, "municipality": municipality_entry, "city": city_entry},
+        {"region": region_code_var, "municipality": municipality_code_var, "city": city_code_var},
+    )
 
     address_row = tk.Frame(location, bg="white")
     address_row.pack(fill="x", pady=(14, 0))
@@ -568,6 +586,10 @@ def mount_stay_declarations(parent):
             row[key], row[key + '_code_var'], row[key + '_code'] = location_field(
                 fields, column, title, values, catalogue,
                 value=saved_addresses[i].get(key), code=saved_addresses[i].get(key + '_code', ''))
+        row['location_selector'] = LocationSelector(
+            {key: row[key] for key in ("region", "municipality", "city")},
+            {key: row[key + '_code_var'] for key in ("region", "municipality", "city")},
+        )
         address_fields = tk.Frame(details, bg="white")
         address_fields.pack(fill="x")
         for column, weight in enumerate((1, 4, 1)):

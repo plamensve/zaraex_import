@@ -18,6 +18,29 @@ class Value:
 
 
 class StayIntegrationTests(unittest.TestCase):
+    def test_xml_export_rejects_a_settlement_from_another_municipality(self):
+        source = """<root>
+            <declarationReference><ukn_eADD>00001234</ukn_eADD></declarationReference>
+            <fuel><fuelAmount>1250.50</fuelAmount><fuelKNCode>27102011</fuelKNCode></fuel>
+            <transport><transportation><tug>CA1234AB</tug></transportation></transport>
+        </root>"""
+        with tempfile.TemporaryDirectory() as directory:
+            input_file = os.path.join(directory, "edp.xml")
+            output_file = os.path.join(directory, "stay.xml")
+            with open(input_file, "w", encoding="utf-8") as file:
+                file.write(source)
+            with (
+                patch.object(stay, "date_entry", Value("09.10.2026"), create=True),
+                patch.object(stay, "region_code_var", Value("SOF"), create=True),
+                patch.object(stay, "municipality_code_var", Value("SOF46"), create=True),
+                patch.object(stay, "city_code_var", Value("07598"), create=True),
+                patch.object(stay, "address_entry", Value("ул. Примерна"), create=True),
+                patch.object(stay, "number_entry", Value("12"), create=True),
+                self.assertRaisesRegex(ValueError, "Населеното място"),
+            ):
+                stay.convert_xml(input_file, output_file)
+            self.assertFalse(os.path.exists(output_file))
+
     def test_location_catalogues_from_original_excel_files(self):
         self.assertTrue(stay.DOMAIN_DICT)
         self.assertTrue(stay.MUNICIPALITY_DICT)

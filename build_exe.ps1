@@ -12,6 +12,10 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller installation failed." }
 python -m pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed." }
 
+# Verify the unified Tkinter shell and embedded E_STAY_GEN widgets on Windows.
+python -m unittest -v test_stay_gui_smoke
+if ($LASTEXITCODE -ne 0) { throw "Integrated Tkinter UI smoke test failed." }
+
 # Enlarge the artwork within the ICO canvas before attaching it to the EXE.
 python optimize_icon.py
 if ($LASTEXITCODE -ne 0) { throw "Icon optimization failed." }

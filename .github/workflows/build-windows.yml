@@ -13,6 +13,7 @@ on:
       - 'addresses.py'
       - 'excel_export.py'
       - 'settings_editor.py'
+      - 'handover_people.py'
       - 'product_catalog.py'
       - 'products.json'
       - 'locations.json'

@@ -10,6 +10,7 @@ import math
 from excel_export import ExcelWorkbook
 from product_catalog import CATALOG_VERSION, load_catalog, migrate_catalog
 from settings_editor import SettingsEditorMixin
+from handover_people import handover_full_name, matching_handover_people, validate_handover_person
 from addresses import AddressFields, validate_address, format_address
 
 
@@ -36,7 +37,7 @@ LOADING_FORM_FIELDS = (
     ("company", "Транспортна фирма", "combo", 1, 9, 3),
     ("vehicle", "МПС", "combo", 2, 0, 3),
     ("driver", "Шофьор", "combo", 2, 3, 3),
-    ("handover_name", "Име на предал горивото", "entry", 2, 6, 3),
+    ("handover_name", "Име на предал горивото", "searchcombo", 2, 6, 3),
     ("handover_egn", "ЕГН на предал горивото", "entry", 2, 9, 3),
 )
 
@@ -87,6 +88,7 @@ DEFAULT_DATA = {
             "eik": "831924394",
         }
     ],
+    "handover_people": [],
 }
 
 
@@ -555,9 +557,10 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             ).grid(row=0, column=0, sticky="w", pady=(0, 5))
 
             variable = getattr(self, f"{key}_var")
-            if kind == "combo":
+            if kind in ("combo", "searchcombo"):
                 widget = ttk.Combobox(
-                    field_frame, textvariable=variable, state="readonly",
+                    field_frame, textvariable=variable,
+                    state="normal" if kind == "searchcombo" else "readonly",
                     style="Loading.TCombobox", width=1
                 )
                 setattr(self, f"{key}_combo", widget)
@@ -575,7 +578,13 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             "<<ComboboxSelected>>", lambda event: self.update_selection_info()
         )
         self.base_combo.bind(
-            "<<ComboboxSelected>>", lambda event: self.update_selection_info()
+            "<<ComboboxSelected>>", self.on_base_changed
+        )
+        self.handover_name_combo.bind(
+            "<<ComboboxSelected>>", self.on_handover_selected
+        )
+        self.handover_name_combo.bind(
+            "<KeyRelease>", self.on_handover_typing
         )
 
         # Controls sit in their own row and do not affect the input heights.
@@ -817,6 +826,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.vehicles_settings = ttk.Frame(self.settings_notebook)
         self.drivers_settings = ttk.Frame(self.settings_notebook)
         self.bases_settings = ttk.Frame(self.settings_notebook)
+        self.handover_settings = ttk.Frame(self.settings_notebook)
 
         self.settings_notebook.add(
             self.products_settings,
@@ -838,12 +848,17 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.bases_settings,
             text="Петролни бази"
         )
+        self.settings_notebook.add(
+            self.handover_settings,
+            text="Предал горивото"
+        )
 
         self.build_products_settings()
         self.build_companies_settings()
         self.build_vehicles_settings()
         self.build_drivers_settings()
         self.build_bases_settings()
+        self.build_handover_settings()
 
     # ========================================================
     # PRODUCTS
@@ -1060,6 +1075,48 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         self.add_settings_actions(frame, "bases", self.bases_tree, "Изтрий избраната база")
 
+    def build_handover_settings(self):
+        frame = self.handover_settings
+        form = ttk.LabelFrame(frame, text="Добави лице, което предава гориво", padding=12)
+        form.pack(fill="x", padx=10, pady=10)
+
+        self.h_first = tk.StringVar()
+        self.h_middle = tk.StringVar()
+        self.h_last = tk.StringVar()
+        self.h_egn = tk.StringVar()
+        self.h_base = tk.StringVar()
+
+        self.add_entry(form, "Име", self.h_first, 0, 0, 27)
+        self.add_entry(form, "Презиме (по избор)", self.h_middle, 0, 2, 27)
+        self.add_entry(form, "Фамилия", self.h_last, 1, 0, 27)
+        self.add_entry(form, "ЕГН", self.h_egn, 1, 2, 27)
+
+        ttk.Label(form, text="Петролна база").grid(
+            row=2, column=0, sticky="w", padx=5, pady=8
+        )
+        self.h_base_combo = ttk.Combobox(
+            form, textvariable=self.h_base, state="readonly", width=37
+        )
+        self.h_base_combo.grid(row=2, column=1, columnspan=2, sticky="ew", pady=8)
+
+        ttk.Button(form, text="Добави лице", command=self.add_handover_person).grid(
+            row=2, column=3, sticky="e", padx=10, pady=8
+        )
+
+        self.handover_tree = self.make_settings_tree(
+            frame,
+            (
+                ("first_name", "Име", 180),
+                ("middle_name", "Презиме", 180),
+                ("last_name", "Фамилия", 210),
+                ("egn", "ЕГН", 150),
+                ("base_name", "Петролна база", 310),
+            )
+        )
+        self.add_settings_actions(
+            frame, "handover_people", self.handover_tree, "Изтрий избраното лице"
+        )
+
     @staticmethod
     def make_settings_tree(parent, columns):
         wrap = ttk.Frame(parent)
@@ -1262,6 +1319,26 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.b_link_code.set("")
         self.base_address_fields.clear()
 
+    def add_handover_person(self):
+        try:
+            person = validate_handover_person(self.store.data, {
+                "first_name": self.h_first.get(),
+                "middle_name": self.h_middle.get(),
+                "last_name": self.h_last.get(),
+                "egn": self.h_egn.get(),
+                "base_name": self.h_base.get(),
+            })
+        except ValueError as exc:
+            messagebox.showerror("Невалидни данни", str(exc))
+            return
+
+        self.store.data["handover_people"].append(person)
+        self.save_and_refresh()
+        self.h_first.set("")
+        self.h_middle.set("")
+        self.h_last.set("")
+        self.h_egn.set("")
+
     def delete_settings_item(self, collection, tree):
         selected = tree.selection()
 
@@ -1276,6 +1353,13 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         prompt = "Да бъде ли изтрит избраният запис?"
         if collection == "transport_companies":
             prompt += "\nЩе бъдат изтрити и свързаните МПС и шофьори."
+        if collection == "bases":
+            associated = sum(
+                p.get("base_name") == self.store.data["bases"][index].get("name")
+                for p in self.store.data["handover_people"]
+            )
+            if associated:
+                prompt += f"\nЩе бъдат изтрити и {associated} свързани лица."
         if not messagebox.askyesno("Потвърждение", prompt):
             return
 
@@ -1294,6 +1378,12 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             self.store.data["drivers"] = [
                 d for d in self.store.data["drivers"]
                 if d.get("company_eik") != eik
+            ]
+
+        if collection == "bases":
+            self.store.data["handover_people"] = [
+                person for person in self.store.data["handover_people"]
+                if person.get("base_name") != deleted.get("name")
             ]
 
         self.save_and_refresh()
@@ -1386,6 +1476,24 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
                 values=(b.get("name", ""), b.get("eik", ""), b.get("link_code", ""), format_address(b.get("address")), b.get("address", {}).get("city_code", ""))
             )
 
+        self.clear_tree(self.handover_tree)
+        for i, person in enumerate(self.store.data["handover_people"]):
+            self.handover_tree.insert(
+                "", "end", iid=str(i),
+                values=(
+                    person.get("first_name", ""),
+                    person.get("middle_name", ""),
+                    person.get("last_name", ""),
+                    person.get("egn", ""),
+                    person.get("base_name", ""),
+                )
+            )
+
+        base_names = [base["name"] for base in self.store.data["bases"]]
+        self.h_base_combo["values"] = base_names
+        if self.h_base.get() not in base_names:
+            self.h_base.set(base_names[0] if base_names else "")
+
         companies = [
             c["name"]
             for c in self.store.data["transport_companies"]
@@ -1414,6 +1522,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
     # ========================================================
 
     def refresh_main_dropdowns(self):
+        old_base = self.base_var.get()
         products = [
             p["name"]
             for p in self.store.data["products"]
@@ -1441,13 +1550,51 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
 
         if self.base_var.get() not in bases:
             self.base_var.set(bases[0] if bases else "")
+        if old_base != self.base_var.get():
+            self.handover_name_var.set("")
+            self.handover_egn_var.set("")
 
+        self.refresh_handover_dropdowns()
         self.refresh_company_dependent_dropdowns()
         self.update_selection_info()
 
     def on_company_changed(self, event=None):
         self.refresh_company_dependent_dropdowns()
         self.update_selection_info()
+
+    def on_base_changed(self, event=None):
+        """Never keep a person's details when the loading base changes."""
+        self.handover_name_var.set("")
+        self.handover_egn_var.set("")
+        self.refresh_handover_dropdowns()
+        self.update_selection_info()
+
+    def refresh_handover_dropdowns(self, query=""):
+        people = matching_handover_people(
+            self.store.data.get("handover_people", []), self.base_var.get(), query
+        )
+        self.handover_name_combo["values"] = [handover_full_name(p) for p in people]
+        return people
+
+    def on_handover_selected(self, event=None):
+        name = self.handover_name_var.get().strip().casefold()
+        person = next((
+            p for p in matching_handover_people(
+                self.store.data.get("handover_people", []), self.base_var.get()
+            )
+            if handover_full_name(p).casefold() == name
+        ), None)
+        self.handover_egn_var.set(person["egn"] if person else "")
+
+    def on_handover_typing(self, event):
+        if event.keysym in ("Up", "Down", "Return", "Escape", "Tab"):
+            return
+        self.handover_egn_var.set("")
+        query = self.handover_name_var.get()
+        people = self.refresh_handover_dropdowns(query)
+        # Show filtered suggestions without requiring the user to click the arrow.
+        if people and query.strip() and event.keysym not in ("Left", "Right"):
+            self.handover_name_combo.event_generate("<Down>")
 
     def refresh_company_dependent_dropdowns(self):
         company = self.get_company_by_name(

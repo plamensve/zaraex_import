@@ -21,7 +21,7 @@ class LoadingFormLayoutTests(unittest.TestCase):
             for key, label, kind, field_row, col, span in LOADING_FORM_FIELDS:
                 if field_row == row:
                     self.assertTrue(label)
-                    self.assertIn(kind, ("entry", "combo"))
+                    self.assertIn(kind, ("entry", "combo", "searchcombo"))
                     self.assertGreater(span, 0)
                     occupied.extend(range(col, col + span))
             self.assertEqual(
@@ -35,7 +35,7 @@ class LoadingFormLayoutTests(unittest.TestCase):
             {key for key, (kind, _) in field_map.items() if kind == "combo"},
             {"product", "base", "company", "vehicle", "driver"},
         )
-        self.assertEqual(field_map["handover_name"], ("entry", 2))
+        self.assertEqual(field_map["handover_name"], ("searchcombo", 2))
         self.assertEqual(field_map["handover_egn"], ("entry", 2))
 
 

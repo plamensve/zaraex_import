@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from addresses import AddressFields, validate_address
+from handover_people import validate_handover_person
 
 
 FIELDS = {
@@ -11,6 +12,7 @@ FIELDS = {
     "vehicles": [("registration", "МПС"), ("company_eik", "Транспортна фирма")],
     "drivers": [("name", "Име"), ("egn", "ЕГН"), ("company_eik", "Транспортна фирма")],
     "bases": [("name", "Петролна база"), ("eik", "ЕИК"), ("link_code", "Код за връзка")],
+    "handover_people": [("first_name", "Име"), ("middle_name", "Презиме (по избор)"), ("last_name", "Фамилия"), ("egn", "ЕГН"), ("base_name", "Петролна база")],
 }
 
 
@@ -24,6 +26,7 @@ def prepare_settings_edit(data, collection, index, changes):
         "vehicles": ("registration", "company_eik"),
         "drivers": ("name", "egn", "company_eik"),
         "bases": ("name", "eik"),
+        "handover_people": ("first_name", "last_name", "egn", "base_name"),
     }[collection]
     if any(not updated.get(key) for key in required):
         raise ValueError("Попълни задължителните полета.")
@@ -34,6 +37,8 @@ def prepare_settings_edit(data, collection, index, changes):
         raise ValueError("Избери съществуваща транспортна фирма.")
     if collection == "bases":
         updated["address"] = validate_address(updated.get("address", {}))
+    if collection == "handover_people":
+        updated.update(validate_handover_person(data, updated, ignore_index=index))
     others = [item for i, item in enumerate(data[collection]) if i != index]
     unique_keys = {
         "products": ("name", "link_code"),
@@ -56,6 +61,10 @@ def apply_settings_edit(data, collection, index, updated):
             for item in data[related]:
                 if item.get("company_eik") == old["eik"]:
                     item["company_eik"] = updated["eik"]
+    if collection == "bases" and old.get("name") != updated.get("name"):
+        for person in data.get("handover_people", []):
+            if person.get("base_name") == old.get("name"):
+                person["base_name"] = updated["name"]
     data[collection][index] = updated
 
 
@@ -83,6 +92,7 @@ class SettingsEditorMixin:
         form.pack(fill="both", expand=True)
         variables = {}
         companies = {f"{c['name']} · {c['eik']}": c["eik"] for c in self.store.data["transport_companies"]}
+        bases = [base["name"] for base in self.store.data["bases"]]
         for row, (key, label) in enumerate(FIELDS[collection]):
             value = original.get(key, "")
             if key == "company_eik":
@@ -92,6 +102,8 @@ class SettingsEditorMixin:
             ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", padx=(0, 12), pady=6)
             if key == "company_eik":
                 entry = ttk.Combobox(form, textvariable=var, values=list(companies), state="readonly", width=65)
+            elif key == "base_name":
+                entry = ttk.Combobox(form, textvariable=var, values=bases, state="readonly", width=65)
             else:
                 entry = ttk.Entry(form, textvariable=var, width=68)
             entry.grid(row=row, column=1, sticky="ew", pady=6)
@@ -152,6 +164,8 @@ class SettingsEditorMixin:
         for key, var in self.record_form_variables().items():
             var.set(values[key])
         self.refresh_company_dependent_dropdowns()
+        if hasattr(self, "refresh_handover_dropdowns"):
+            self.refresh_handover_dropdowns()
         self.vehicle_var.set(values["vehicle"])
         self.driver_var.set(values["driver"])
         self.update_selection_info()
@@ -172,5 +186,7 @@ class SettingsEditorMixin:
         for key, var in self.record_form_variables().items():
             var.set(self.record_form_before_edit[key])
         self.refresh_company_dependent_dropdowns()
+        if hasattr(self, "refresh_handover_dropdowns"):
+            self.refresh_handover_dropdowns()
         self.update_selection_info()
         self.finish_record_edit()

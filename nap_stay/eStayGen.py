@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 import os
@@ -375,14 +375,15 @@ def mount_stay_declarations(parent):
         return tk.Label(host, text=text, bg=bg, fg=color, anchor="w",
                         justify="left", font=("Segoe UI", size, "bold" if bold else "normal"))
 
-    def button(host, text, command, *, primary=False, danger=False):
+    def button(host, text, command, *, primary=False, danger=False, compact=False):
         normal = accent if primary else ("#FFF0F0" if danger else "#EAF1FA")
         foreground = "white" if primary else ("#B33D45" if danger else accent)
         hover = "#06675F" if primary else ("#FFE1E3" if danger else "#D8EDE8")
         widget = tk.Button(host, text=text, command=command, bg=normal, fg=foreground,
                            activebackground=hover, activeforeground=foreground,
                            font=("Segoe UI", 10, "bold"), relief="flat", borderwidth=0,
-                           padx=14, pady=9, cursor="hand2", highlightthickness=1,
+                           padx=12 if compact else 14, pady=5 if compact else 9,
+                           cursor="hand2", highlightthickness=1,
                            highlightbackground=normal, highlightcolor=accent)
         widget.bind("<Enter>", lambda event: widget.configure(bg=hover))
         widget.bind("<Leave>", lambda event: widget.configure(bg=normal))
@@ -523,12 +524,128 @@ def mount_stay_declarations(parent):
 
 
 
-    saved_section = section("Запазени адреси", "Пет адресни шаблона за повторна употреба. Промените се запазват автоматично.")
-    transport_frame = tk.Frame(saved_section, bg="white")
-    transport_frame.pack(fill="x")
+    saved_section = section(
+        "Запазени адреси",
+        "Изберете ред, за да запазите адреса от формуляра. Всеки ред може да се редактира."
+    )
     transport_entries = []
     root.saved_address_rows = transport_entries
     saved_addresses = load_saved_addresses()
+
+    def has_address(record):
+        return any(str(record.get(key, "")).strip() for key in (
+            "region_code", "municipality_code", "city_code", "address", "number"
+        ))
+
+    def cleaned(entry, placeholder_text):
+        value = entry.get().strip()
+        return "" if value == placeholder_text else value
+
+    def row_data(idx):
+        row = transport_entries[idx]
+        return {
+            "region": cleaned(row["region"], "Област"),
+            "region_code": row["region_code_var"].get(),
+            "municipality": cleaned(row["municipality"], "Община"),
+            "municipality_code": row["municipality_code_var"].get(),
+            "city": cleaned(row["city"], "Населено място"),
+            "city_code": row["city_code_var"].get(),
+            "company": cleaned(row["company"], f"Тр. Фирма {idx + 1}"),
+            "address": cleaned(row["address"], f"Адрес {idx + 1}"),
+            "number": cleaned(row["number"], f"№{idx + 1}"),
+        }
+
+    def address_summary(data):
+        street = " ".join(part for part in (
+            str(data.get("address", "")).strip(), str(data.get("number", "")).strip()
+        ) if part)
+        location = ", ".join(part for part in (
+            str(data.get("city", "")).strip(), str(data.get("municipality", "")).strip(),
+            str(data.get("region", "")).strip()
+        ) if part)
+        return " · ".join(part for part in (location, street) if part) or "Няма запазен адрес"
+
+    def persist_row(idx):
+        data = row_data(idx)
+        saved_addresses[idx] = data if any(data.values()) else {}
+        save_addresses(saved_addresses)
+        transport_entries[idx]["summary_var"].set(address_summary(data))
+
+    def put_entry(entry, value):
+        entry.delete(0, tk.END)
+        entry.insert(0, value)
+        entry.configure(fg=text_color)
+
+    def set_row(idx, data):
+        row = transport_entries[idx]
+        selector = row["location_selector"]
+        for field in ("region", "municipality", "city"):
+            selector.select(field, data[field])
+        for key in ("company", "address", "number"):
+            value = data.get(key, "")
+            if key == "company" and not value:
+                put_entry(row[key], f"Тр. Фирма {idx + 1}")
+                row[key].configure(fg=muted)
+            else:
+                put_entry(row[key], value)
+        persist_row(idx)
+
+    first_free = next((i for i, record in enumerate(saved_addresses)
+                       if not has_address(record)), 0)
+    selected_slot = tk.StringVar(value=f"{first_free + 1:02d}")
+    toolbar = tk.Frame(saved_section, bg="white")
+    toolbar.pack(fill="x", pady=(0, 14))
+    label(toolbar, "Запази от формуляра в ред:", color=muted).pack(side="left")
+    slot_select = ttk.Combobox(
+        toolbar, state="readonly", width=5, textvariable=selected_slot,
+        values=[f"{index + 1:02d}" for index in range(5)]
+    )
+    slot_select.pack(side="left", padx=(10, 12))
+
+    def save_main_address():
+        try:
+            # Normalize free-typed locations before reading their codes.
+            selector = root.location_selector
+            for field in ("region", "municipality", "city"):
+                selector.commit(field)
+            validate_location_codes(
+                region_code_var.get(), municipality_code_var.get(), city_code_var.get()
+            )
+            address = cleaned(address_entry, "Адрес")
+            number = cleaned(number_entry, "№")
+            if not address or not number:
+                raise ValueError("Попълнете улица/местност и номер на адреса.")
+        except ValueError as exc:
+            messagebox.showwarning("Непълен адрес", str(exc), parent=root.winfo_toplevel())
+            return
+        idx = int(selected_slot.get()) - 1
+        if has_address(saved_addresses[idx]) and not messagebox.askyesno(
+            "Замяна на адрес", f"Ред {idx + 1:02d} вече има запазен адрес. Да бъде ли заменен?",
+            parent=root.winfo_toplevel()
+        ):
+            return
+        data = {
+            "region": region_entry.get(), "region_code": region_code_var.get(),
+            "municipality": municipality_entry.get(),
+            "municipality_code": municipality_code_var.get(),
+            "city": city_entry.get(), "city_code": city_code_var.get(),
+            "address": address, "number": number,
+            "company": row_data(idx)["company"],
+        }
+        set_row(idx, data)
+        transport_entries[idx]["toggle_button"].configure(text="Редактирай")
+        transport_entries[idx]["details"].pack_forget()
+        messagebox.showinfo(
+            "Адресът е запазен", f"Адресът е записан в ред {idx + 1:02d}.",
+            parent=root.winfo_toplevel()
+        )
+
+    button(toolbar, "Запази текущия адрес", save_main_address, primary=True).pack(side="left")
+    root.save_main_address = save_main_address
+    root.saved_address_slot = selected_slot
+
+    transport_frame = tk.Frame(saved_section, bg="white")
+    transport_frame.pack(fill="x")
     region_entry_main = region_entry
     region_code_var_main = region_code_var
     municipality_entry_main = municipality_entry
@@ -542,19 +659,29 @@ def mount_stay_declarations(parent):
         card.pack(fill="x", pady=(0, 10))
         row_frame = tk.Frame(card, bg="white")
         row_frame.pack(fill="x", padx=14, pady=12)
-        label(row_frame, f"{i + 1:02d}", color=accent, bold=True, size=12).pack(side="left", padx=(0, 12))
-        company_cell = tk.Frame(row_frame, bg="white")
-        company_cell.pack(side="left", fill="x", expand=True, padx=(0, 16))
-        label(company_cell, "Транспортна фирма", color=muted, size=9).pack(anchor="w", pady=(0, 3))
-        row['company'] = tk.Entry(company_cell, **input_options())
-        row['company'].pack(fill="x", ipady=5)
-        if saved_addresses[i].get('company') and saved_addresses[i]['company'] != f"Тр. Фирма {i + 1}":
-            row['company'].insert(0, saved_addresses[i]['company'])
+        row_frame.columnconfigure(1, weight=1)
+        label(row_frame, f"{i + 1:02d}", color=accent, bold=True, size=12).grid(
+            row=1, column=0, sticky="w", padx=(0, 14)
+        )
+        label(row_frame, "Транспортна фирма", color=muted, size=9).grid(
+            row=0, column=1, sticky="w", pady=(0, 4)
+        )
+        row["company"] = tk.Entry(row_frame, **input_options())
+        row["company"].grid(row=1, column=1, sticky="nsew", ipady=5)
+        if saved_addresses[i].get("company") and saved_addresses[i]["company"] != f"Тр. Фирма {i + 1}":
+            row["company"].insert(0, saved_addresses[i]["company"])
         else:
-            placeholder(row['company'], f"Тр. Фирма {i + 1}")
+            placeholder(row["company"], f"Тр. Фирма {i + 1}")
         row_actions = tk.Frame(row_frame, bg="white")
-        row_actions.pack(side="right")
+        row_actions.grid(row=1, column=2, sticky="ns", padx=(14, 0))
+        row["actions"] = row_actions
+        row["summary_var"] = tk.StringVar(value=address_summary(saved_addresses[i]))
+        row["summary_label"] = label(row_frame, "", color=muted, size=9)
+        row["summary_label"].configure(textvariable=row["summary_var"])
+        row["summary_label"].grid(row=2, column=1, columnspan=2,
+                                   sticky="w", pady=(7, 0))
         details = tk.Frame(card, bg="white")
+        row["details"] = details
         fields = tk.Frame(details, bg="white")
         fields.pack(fill="x", pady=(0, 12))
         for column in range(3):
@@ -627,39 +754,17 @@ def mount_stay_declarations(parent):
 
 
         def clear_row(idx=i):
-            for key, entry in transport_entries[idx].items():
-                if isinstance(entry, tk.Entry):
-                    if key == 'company':
-                        entry.delete(0, tk.END)
-                        entry.insert(0, f"Тр. Фирма {idx + 1}")
-                        entry.config(fg="gray")
-                    elif key == 'address':
-                        entry.delete(0, tk.END)
-                        entry.insert(0, f"Адрес {idx + 1}")
-                        entry.config(fg="gray")
-                    elif key == 'number':
-                        entry.delete(0, tk.END)
-                        entry.insert(0, f"№{idx + 1}")
-                        entry.config(fg="gray")
-                    elif key == 'region':
-                        entry.delete(0, tk.END)
-                        entry.insert(0, "Област")
-                        entry.config(fg="gray")
-                    elif key == 'municipality':
-                        entry.delete(0, tk.END)
-                        entry.insert(0, "Община")
-                        entry.config(fg="gray")
-                    elif key == 'city':
-                        entry.delete(0, tk.END)
-                        entry.insert(0, "Населено място")
-                        entry.config(fg="gray")
-                elif isinstance(entry, tk.StringVar):
-                    entry.set("")
-            # Изтриване от файла
+            row = transport_entries[idx]
+            row["location_selector"].select("region", "")
+            for key, hint in (
+                ("company", f"Тр. Фирма {idx + 1}"),
+                ("address", f"Адрес {idx + 1}"), ("number", f"№{idx + 1}")
+            ):
+                put_entry(row[key], hint)
+                row[key].configure(fg=muted)
             saved_addresses[idx] = {}
             save_addresses(saved_addresses)
-
-
+            row["summary_var"].set("Няма запазен адрес")
 
         def toggle_details(frame=details, widgets=row):
             if frame.winfo_manager():
@@ -668,7 +773,8 @@ def mount_stay_declarations(parent):
             else:
                 frame.pack(fill="x", padx=14, pady=(0, 16))
                 widgets['toggle_button'].configure(text="Скрий полетата")
-        def apply_saved_address(callback=apply_address):
+        def apply_saved_address(callback=apply_address, idx=i):
+            persist_row(idx)
             callback()
             for entry in (region_entry_main, municipality_entry_main, city_entry_main):
                 entry.hide_listbox()
@@ -676,48 +782,23 @@ def mount_stay_declarations(parent):
                 root.master.yview_moveto(0)
             date_entry.focus_set()
 
-        button(row_actions, "Приложи адрес", apply_saved_address, primary=True).pack(side="left", padx=(0, 8))
-        row['toggle_button'] = button(row_actions, "Редактирай", toggle_details)
-        row['toggle_button'].pack(side="left", padx=(0, 8))
-        button(row_actions, "Изтрий адрес", clear_row, danger=True).pack(side="left")
-
-        # --- Автоматично запазване при промяна ---
-        def save_row(event=None, idx=i, row=row):
-            if row is None:
-                row = row
-            saved_addresses[idx] = {
-                'region': row['region'].get(),
-                'region_code': row['region_code_var'].get(),
-                'municipality': row['municipality'].get(),
-                'municipality_code': row['municipality_code_var'].get(),
-                'city': row['city'].get(),
-                'city_code': row['city_code_var'].get(),
-                'company': row['company'].get(),
-                'address': row['address'].get(),
-                'number': row['number'].get().strip(),
-            }
-            save_addresses(saved_addresses)
-
-
-        for key in ['region', 'municipality', 'city', 'company', 'address', 'number']:
-            row[key].bind('<FocusOut>', save_row, add='+')
+        button(row_actions, "Приложи адрес", apply_saved_address,
+               primary=True, compact=True).pack(side="left", fill="y", padx=(0, 8))
+        row["toggle_button"] = button(row_actions, "Редактирай", toggle_details,
+                                      compact=True)
+        row["toggle_button"].pack(side="left", fill="y", padx=(0, 8))
+        button(row_actions, "Изтрий адрес", clear_row,
+               danger=True, compact=True).pack(side="left", fill="y")
 
         transport_entries.append(row)
 
+        # Save edited address fields when they lose focus, with updated collapsed summary.
+        for key in ("region", "municipality", "city", "company", "address", "number"):
+            row[key].bind("<FocusOut>", lambda event, idx=i: persist_row(idx), add="+")
+
     def on_close():
-        for idx, row in enumerate(transport_entries):
-            saved_addresses[idx] = {
-                'region': row['region'].get(),
-                'region_code': row['region_code_var'].get(),
-                'municipality': row['municipality'].get(),
-                'municipality_code': row['municipality_code_var'].get(),
-                'city': row['city'].get(),
-                'city_code': row['city_code_var'].get(),
-                'company': row['company'].get(),
-                'address': row['address'].get(),
-                'number': row['number'].get().strip(),
-            }
-        save_addresses(saved_addresses)
+        for idx in range(len(transport_entries)):
+            persist_row(idx)
 
 
 

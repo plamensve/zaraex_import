@@ -16,7 +16,7 @@ from addresses import AddressFields, validate_address, format_address
 
 
 APP_TITLE = "ZaraEx Import Generator"
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 APP_AUTHOR = "Plamen Svetoslavov"
 COPYRIGHT_NOTICE = f"© 2026 {APP_AUTHOR}. Всички права запазени."
 APP_VERSION_LABEL = f"Версия {APP_VERSION}"
@@ -309,6 +309,16 @@ class ZaraExApp(SettingsEditorMixin, TkinterDnD.Tk):
             font=("Segoe UI", 20, "bold")
         ).pack(side="left", padx=24, pady=17)
 
+        # Back navigation belongs to the current module, not the launcher.
+        # Return to the existing home widgets to retain unsaved form values.
+        self.back_button = tk.Button(
+            header, text="← Назад", command=self.show_home,
+            font=("Segoe UI", 10, "bold"), bg="#284B75", fg="white",
+            activebackground="#365F8D", activeforeground="white",
+            relief="flat", borderwidth=0, padx=16, pady=9, cursor="hand2",
+        )
+        # Deliberately not packed until a module has been opened.
+
         self.home_button = tk.Button(
             header, text="Начало", command=self.show_home,
             font=("Segoe UI", 10, "bold"), bg="#284B75", fg="white",
@@ -353,7 +363,8 @@ class ZaraExApp(SettingsEditorMixin, TkinterDnD.Tk):
         self.protocol("WM_DELETE_WINDOW", self.close_application)
 
     def show_home(self):
-        """Return to the launcher without rebuilding either module's widgets."""
+        """Return to the launcher without rebuilding any module's widgets."""
+        self.back_button.pack_forget()
         self.notebook.pack_forget()
         self.home_page.pack(fill="both", expand=True)
         self.workspace_title.set("Работно пространство")
@@ -378,6 +389,8 @@ class ZaraExApp(SettingsEditorMixin, TkinterDnD.Tk):
              "pdf": "PDF инструменти"}[module]
         )
         self.home_button.configure(state="normal")
+        if not self.back_button.winfo_manager():
+            self.back_button.pack(side="left", padx=(0, 16), pady=11)
         self.notebook.focus_set()
 
     def build_home_page(self):

@@ -190,6 +190,73 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                 finally:
                     reopened.close_application()
 
+    def test_back_button_is_module_only_and_version_is_2_0_0(self):
+        from app import APP_VERSION, APP_VERSION_LABEL, ZaraExApp
+        from nap_stay import eStayGen as stay
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"LOCALAPPDATA": directory}):
+                app = ZaraExApp()
+                try:
+                    app.update()
+                    self.assertEqual(APP_VERSION, "2.0.0")
+                    self.assertEqual(APP_VERSION_LABEL, "Версия 2.0.0")
+                    self.assertEqual(app.back_button.cget("text"), "← Назад")
+                    self.assertEqual(app.back_button.winfo_manager(), "")
+
+                    # All three workspaces show back navigation beside the title.
+                    app.open_workspace("import")
+                    app.update()
+                    self.assertEqual(app.back_button.winfo_manager(), "pack")
+                    self.assertTrue(app.back_button.winfo_ismapped())
+                    app.ukn_var.set("00001234")
+                    app.back_button.invoke()
+                    app.update()
+                    self.assertTrue(app.home_page.winfo_ismapped())
+                    self.assertEqual(app.back_button.winfo_manager(), "")
+
+                    app.open_workspace("stay")
+                    app.update()
+                    self.assertTrue(app.back_button.winfo_ismapped())
+                    stay.address_entry.delete(0, tk.END)
+                    stay.address_entry.insert(0, "ул. Тест")
+                    app.back_button.invoke()
+                    app.update()
+                    self.assertTrue(app.home_page.winfo_ismapped())
+                    self.assertEqual(app.back_button.winfo_manager(), "")
+
+                    app.open_workspace("pdf")
+                    app.update()
+                    self.assertEqual(app.notebook.select(), str(app.pdf_tab))
+                    self.assertTrue(app.back_button.winfo_ismapped())
+                    app.back_button.invoke()
+                    app.update()
+                    self.assertEqual(app.back_button.winfo_manager(), "")
+                    self.assertTrue(app.home_page.winfo_ismapped())
+
+                    # Back only switches workspace; no form or module is rebuilt.
+                    app.open_workspace("import")
+                    self.assertEqual(app.ukn_var.get(), "00001234")
+                    app.back_button.invoke()
+                    app.open_workspace("stay")
+                    self.assertEqual(stay.address_entry.get(), "ул. Тест")
+                    app.back_button.invoke()
+
+                    def all_children(widget):
+                        for child in widget.winfo_children():
+                            yield child
+                            yield from all_children(child)
+
+                    visible_footer_labels = [
+                        child.cget("text")
+                        for child in all_children(app)
+                        if isinstance(child, tk.Label)
+                    ]
+                    self.assertIn("Версия 2.0.0", visible_footer_labels)
+                    self.assertNotIn("Версия 1.0.0", visible_footer_labels)
+                finally:
+                    app.close_application()
+
     def test_tabs_and_original_estay_controls_open_in_single_window(self):
         from app import ZaraExApp
         from nap_stay import eStayGen as stay

@@ -116,6 +116,80 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                 finally:
                     app.close_application()
 
+    def test_save_main_address_into_first_slot_and_align_buttons(self):
+        from app import ZaraExApp
+        from nap_stay import eStayGen as stay
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"LOCALAPPDATA": directory}):
+                app = ZaraExApp()
+                try:
+                    app.open_workspace("stay")
+                    app.update()
+                    content = app.stay_tab.stay_content
+                    self.assertEqual(content.saved_address_slot.get(), "01")
+                    selector = content.location_selector
+                    selector.select("region", "Пловдив")
+                    selector.select("municipality", "Пловдив")
+                    selector.select("city", "гр.Пловдив")
+                    self.assertEqual(stay.city_code_var.get(), "56784")
+                    stay.address_entry.delete(0, tk.END)
+                    stay.address_entry.insert(0, "ВАСИЛ ЛЕВСКИ")
+                    stay.number_entry.delete(0, tk.END)
+                    stay.number_entry.insert(0, "214")
+
+                    with patch.object(stay.messagebox, "showinfo"):
+                        content.save_main_address()
+
+                    row = content.saved_address_rows[0]
+                    self.assertIn("ВАСИЛ ЛЕВСКИ 214", row["summary_var"].get())
+                    self.assertEqual(row["address"].get(), "ВАСИЛ ЛЕВСКИ")
+                    self.assertEqual(row["city_code_var"].get(), "56784")
+                    self.assertEqual(row["company"].get(), "Тр. Фирма 1")
+                    self.assertFalse(row["details"].winfo_ismapped())
+
+                    app.update()
+                    for idx in range(5):
+                        row = content.saved_address_rows[idx]
+                        company = row["company"]
+                        for child in row["actions"].winfo_children():
+                            self.assertLessEqual(
+                                abs(child.winfo_rooty() - company.winfo_rooty()), 3
+                            )
+                            self.assertLessEqual(
+                                abs((child.winfo_rooty() + child.winfo_height()) -
+                                    (company.winfo_rooty() + company.winfo_height())), 3
+                            )
+                    row = content.saved_address_rows[0]
+                    row["toggle_button"].invoke()
+                    app.update()
+                    for child in row["actions"].winfo_children():
+                        self.assertLessEqual(
+                            abs(child.winfo_rooty() - row["company"].winfo_rooty()), 3
+                        )
+                    row["toggle_button"].invoke()
+                    stay.address_entry.delete(0, tk.END)
+                    stay.address_entry.insert(0, "НОВ АДРЕС")
+                    with (patch.object(stay.messagebox, "askyesno", return_value=True),
+                          patch.object(stay.messagebox, "showinfo")):
+                        content.save_main_address()
+                    self.assertIn("НОВ АДРЕС", row["summary_var"].get())
+                    with open(stay.saved_addresses_path(), encoding="utf-8") as file:
+                        saved = json.load(file)
+                    self.assertEqual(saved[0]["address"], "НОВ АДРЕС")
+                    self.assertEqual(saved[0]["number"], "214")
+                    self.assertEqual(saved[1], {})
+                finally:
+                    app.close_application()
+
+                reopened = ZaraExApp()
+                try:
+                    first = reopened.stay_tab.stay_content.saved_address_rows[0]
+                    self.assertIn("НОВ АДРЕС", first["summary_var"].get())
+                    self.assertEqual(first["address"].get(), "НОВ АДРЕС")
+                finally:
+                    reopened.close_application()
+
     def test_tabs_and_original_estay_controls_open_in_single_window(self):
         from app import ZaraExApp
         from nap_stay import eStayGen as stay

@@ -3,6 +3,7 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from tkinterdnd2 import TkinterDnD
 from datetime import datetime
 
 import math
@@ -215,7 +216,7 @@ class DataStore:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
 
 
-class ZaraExApp(SettingsEditorMixin, tk.Tk):
+class ZaraExApp(SettingsEditorMixin, TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
 

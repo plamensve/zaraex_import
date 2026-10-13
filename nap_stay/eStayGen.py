@@ -582,7 +582,12 @@ def mount_stay_declarations(parent):
         for field in ("region", "municipality", "city"):
             selector.select(field, data[field])
         for key in ("company", "address", "number"):
-            put_entry(row[key], data.get(key, ""))
+            value = data.get(key, "")
+            if key == "company" and not value:
+                put_entry(row[key], f"Тр. Фирма {idx + 1}")
+                row[key].configure(fg=muted)
+            else:
+                put_entry(row[key], value)
         persist_row(idx)
 
     first_free = next((i for i, record in enumerate(saved_addresses)

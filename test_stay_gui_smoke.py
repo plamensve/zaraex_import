@@ -130,6 +130,7 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                         "ZaraEx – Товарения",
                         "ZaraEx – Настройки",
                         "НАП – Декларации за престой",
+                        "PDF инструменти",
                     ])
                     self.assertTrue(app.home_page.winfo_ismapped())
                     self.assertFalse(app.notebook.winfo_ismapped())
@@ -145,6 +146,9 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                     self.assertEqual(app.notebook.tab(app.main_tab, "state"), "hidden")
                     stay.address_entry.delete(0, tk.END)
                     stay.address_entry.insert(0, "ул. Примерна")
+                    app.home_button.invoke()
+                    app.module_buttons["pdf"].invoke()
+                    self.assertEqual(app.notebook.select(), str(app.pdf_tab))
                     app.home_button.invoke()
                     app.module_buttons["import"].invoke()
                     self.assertEqual(app.ukn_var.get(), "00001234")
@@ -172,7 +176,7 @@ class EmbeddedStayGuiSmokeTests(unittest.TestCase):
                     ]
                     self.assertEqual(buttons.count("Приложи адрес"), 5)
                     self.assertEqual(buttons.count("Изтрий адрес"), 5)
-                    self.assertIn("Генерирай XML", buttons)
+                    self.assertIn("Генерирай и запази XML", buttons)
                 finally:
                     app.close_application()
 

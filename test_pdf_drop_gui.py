@@ -42,9 +42,16 @@ class PdfDropGuiTests(unittest.TestCase):
                 parent.pack(fill="both", expand=True)
                 view = PdfToolsView(parent)
                 root.update()
-                for target in (view.image_drop.canvas, view.pdf_drop.canvas):
+                # A hidden Notebook tab does not receive its Configure event
+                # until it is shown, so check each page in its visible state.
+                for tab, target in ((0, view.image_drop.canvas),
+                                    (1, view.pdf_drop.canvas)):
+                    view.tool_tabs.select(tab)
+                    root.update()
                     self.assertGreater(len(target.find_withtag("drop_outline")), 0)
                     self.assertTrue(target.dnd_bind("<<Drop>>"))
+                view.tool_tabs.select(0)
+                root.update()
 
                 # The Tcl list parser handles names with spaces from Explorer.
                 payload = root.tk.call("list", str(first), str(second), str(frames))

@@ -114,7 +114,8 @@ class PdfDropGuiTests(unittest.TestCase):
                            return_value=str(output)):
                     view.pdf_gallery.add_canvas.event_generate("<Button-1>", x=65, y=98)
                 root.update()
-                self.assertEqual(view.pdf_source, str(output))
+                # Windows may expand the 8.3 short path into its long form.
+                self.assertTrue(os.path.samefile(view.pdf_source, output))
                 self.assertEqual(len(view.pdf_pages), 4)
                 self.assertTrue(view.pdf_gallery.add_tile.winfo_ismapped())
                 view.clear_pdf()

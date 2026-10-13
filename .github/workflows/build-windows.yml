@@ -11,6 +11,8 @@ on:
       - 'pdf_tools_ui.py'
       - 'pdf_merge.py'
       - 'pdf_merge_ui.py'
+      - 'pdf_drop_ui.py'
+      - 'test_pdf_drop_gui.py'
       - 'test_pdf_merge.py'
       - 'test_pdf_merge_gui.py'
       - 'test_pdf_tools.py'

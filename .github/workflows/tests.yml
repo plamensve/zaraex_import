@@ -20,4 +20,4 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y xvfb
-          xvfb-run -a python -m unittest -v test_stay_gui_smoke test_pdf_merge_gui
+          xvfb-run -a python -m unittest -v test_stay_gui_smoke test_pdf_merge_gui test_pdf_drop_gui

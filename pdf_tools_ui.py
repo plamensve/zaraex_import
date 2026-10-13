@@ -1,26 +1,65 @@
-"""Third ZaraEx workspace: image-to-PDF and PDF optimization."""
+"""ZaraEx PDF workspaces with page-shaped drop targets and real page previews."""
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from pdf_tools import IMAGE_EXTENSIONS, compress_pdf, images_to_pdf
+from PIL import Image, ImageOps
+import pypdfium2 as pdfium
+
+from pdf_tools import IMAGE_EXTENSIONS, image_pages, images_to_pdf, compress_pdf
+from pdf_merge import pages_from_pdf
+from pdf_drop_ui import PageDropZone, ThumbnailGallery
+from pdf_merge_ui import PdfMergeView
 
 BG = "#F4F7FB"
 NAVY = "#17365D"
 TEXT = "#172D49"
+MUTED = "#61718A"
+
+
+def image_thumbnail(page):
+    """Render the actual input frame used for the corresponding output PDF page."""
+    with Image.open(page.source) as image:
+        image.seek(page.frame)
+        frame = ImageOps.exif_transpose(image.copy()).convert("RGBA")
+        background = Image.new("RGBA", frame.size, "white")
+        background.alpha_composite(frame)
+        background.thumbnail((142, 170), Image.Resampling.LANCZOS)
+        return background.convert("RGB")
+
+
+def pdf_thumbnail(page):
+    """Render a real PDF page, including its text and graphics, for preview only."""
+    document = pdfium.PdfDocument(page.source)
+    try:
+        source_page = document[page.number]
+        try:
+            width, height = source_page.get_size()
+            scale = min(142 / max(width, 1), 170 / max(height, 1))
+            bitmap = source_page.render(scale=max(scale, 0.05))
+            try:
+                return bitmap.to_pil().convert("RGB").copy()
+            finally:
+                bitmap.close()
+        finally:
+            source_page.close()
+    finally:
+        document.close()
 
 
 class PdfToolsView:
     def __init__(self, parent):
         self.parent = parent
-        self.images = []
+        self.images = []        # image frames, in exported page order
         self.pdf_source = None
+        self.pdf_pages = []
+
         container = tk.Frame(parent, bg=BG)
         container.pack(fill="both", expand=True, padx=22, pady=18)
         tk.Label(container, text="PDF инструменти", bg=BG, fg=TEXT,
                  font=("Segoe UI", 20, "bold")).pack(anchor="w")
-        tk.Label(container, text="Създавайте, компресирайте и обединявайте PDF файлове локално.",
-                 bg=BG, fg="#61718A", font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 16))
+        tk.Label(container, text="Конвертиране, компресиране и обединяване на PDF — локално на компютъра.",
+                 bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 16))
 
         self.tool_tabs = ttk.Notebook(container)
         self.tool_tabs.pack(fill="both", expand=True)
@@ -30,69 +69,100 @@ class PdfToolsView:
         self.tool_tabs.add(image_tab, text="  Изображения към PDF  ")
         self.tool_tabs.add(compress_tab, text="  Компресиране на PDF  ")
         self.tool_tabs.add(merge_tab, text="  Обединяване на PDF  ")
+        self._build_images(image_tab)
+        self._build_compression(compress_tab)
+        self.merger = PdfMergeView(merge_tab)
 
-        images_card = self._card(image_tab, "Изображения към PDF",
-                                 "Добавете изображения. Редът в списъка определя реда на страниците.")
-        actions = tk.Frame(images_card, bg="white")
-        actions.pack(fill="x", pady=(0, 8))
-        self._button(actions, "Добави изображения", self.add_images).pack(side="left")
-        self._button(actions, "Премахни", self.remove_images, primary=False).pack(side="left", padx=6)
-        self._button(actions, "Нагоре", lambda: self.move(-1), primary=False).pack(side="left")
-        self._button(actions, "Надолу", lambda: self.move(1), primary=False).pack(side="left", padx=6)
-        self.listbox = tk.Listbox(images_card, selectmode="extended", height=5,
-                                  font=("Segoe UI", 10), relief="solid", bd=1,
-                                  activestyle="none", exportselection=False)
-        self.listbox.pack(fill="x")
-        bottom = tk.Frame(images_card, bg="white")
-        bottom.pack(fill="x", pady=(12, 0))
-        tk.Label(bottom, text="Качество на изображенията:", bg="white",
-                 fg=TEXT).pack(side="left")
+    def _build_images(self, parent):
+        card = self._card(parent, "Изображения към PDF",
+                          "Добавете снимки и ги подредете в желания ред за PDF документа.")
+        self.image_drop = PageDropZone(
+            card, title="Пуснете изображенията тук",
+            hint="JPG · PNG · WebP · TIFF · BMP · GIF   |   или натиснете +",
+            on_browse=self.add_images, on_drop=self.ingest_images)
+        self.image_drop.pack(fill="x", pady=(0, 13))
+
+        toolbar = tk.Frame(card, bg="white")
+        toolbar.pack(fill="x", pady=(0, 9))
+        self._button(toolbar, "Добави още", self.add_images, primary=False).pack(side="left")
+        self._button(toolbar, "Премахни избраната", self.remove_images, primary=False).pack(
+            side="left", padx=(8, 0))
+        self._button(toolbar, "Изчисти", self.clear_images, primary=False).pack(
+            side="left", padx=(8, 0))
+        self._button(toolbar, "↑", lambda: self.move(-1), primary=False).pack(
+            side="left", padx=(18, 0))
+        self._button(toolbar, "↓", lambda: self.move(1), primary=False).pack(
+            side="left", padx=(6, 0))
+        self.image_count = tk.StringVar(value="0 страници")
+        tk.Label(toolbar, textvariable=self.image_count, bg="white", fg=NAVY,
+                 font=("Segoe UI", 10, "bold")).pack(side="right")
+
+        self.image_gallery = ThumbnailGallery(
+            card, render_thumbnail=image_thumbnail, on_reorder=self._reorder_images,
+            on_files_drop=self.ingest_images, height=235)
+        self.image_gallery.pack(fill="both", expand=True)
+        actions = tk.Frame(card, bg="white")
+        actions.pack(fill="x", pady=(12, 0))
+        tk.Label(actions, text="Качество:", bg="white", fg=TEXT).pack(side="left")
         self.image_quality = tk.IntVar(value=88)
-        ttk.Combobox(bottom, width=6, state="readonly", textvariable=self.image_quality,
+        ttk.Combobox(actions, width=6, state="readonly", textvariable=self.image_quality,
                      values=(55, 65, 75, 85, 88, 95)).pack(side="left", padx=10)
-        self._button(bottom, "Създай и запази PDF", self.make_pdf).pack(side="right")
-        self.image_status = tk.StringVar(value="Няма добавени изображения.")
-        tk.Label(images_card, textvariable=self.image_status, bg="white", fg="#61718A",
-                 anchor="w", font=("Segoe UI", 9)).pack(fill="x", pady=(8, 0))
+        self._button(actions, "Създай и запази PDF", self.make_pdf).pack(side="right")
+        self.image_status = tk.StringVar(value="Добавете снимки с drag-and-drop или с бутона +.")
+        tk.Label(card, textvariable=self.image_status, bg="white", fg=MUTED,
+                 anchor="w", font=("Segoe UI", 9)).pack(fill="x", pady=(9, 0))
 
-        pdf_card = self._card(compress_tab, "Намаляване размера на PDF",
-                              "Компресирайте изображенията вътре в PDF, без да превръщате текста в снимка.")
-        chooser = tk.Frame(pdf_card, bg="white")
-        chooser.pack(fill="x")
-        self._button(chooser, "Избери PDF файл", self.select_pdf).pack(side="left")
+    def _build_compression(self, parent):
+        card = self._card(parent, "Намаляване размера на PDF",
+                          "Пуснете PDF, прегледайте страниците и изберете настройките за компресиране.")
+        self.pdf_drop = PageDropZone(
+            card, title="Пуснете PDF файла тук",
+            hint="PDF документ   |   или натиснете +",
+            on_browse=self.select_pdf, on_drop=self.ingest_pdf)
+        self.pdf_drop.pack(fill="x", pady=(0, 13))
+
+        toolbar = tk.Frame(card, bg="white")
+        toolbar.pack(fill="x", pady=(0, 9))
+        self._button(toolbar, "Избери друг PDF", self.select_pdf, primary=False).pack(side="left")
+        self._button(toolbar, "Премахни PDF", self.clear_pdf, primary=False).pack(
+            side="left", padx=8)
         self.pdf_label = tk.StringVar(value="Няма избран PDF файл.")
-        tk.Label(chooser, textvariable=self.pdf_label, bg="white", fg=TEXT,
+        tk.Label(toolbar, textvariable=self.pdf_label, bg="white", fg=MUTED,
                  anchor="w").pack(side="left", padx=12)
-        options = tk.Frame(pdf_card, bg="white")
-        options.pack(fill="x", pady=(15, 0))
+        self.pdf_count = tk.StringVar(value="0 страници")
+        tk.Label(toolbar, textvariable=self.pdf_count, bg="white", fg=NAVY,
+                 font=("Segoe UI", 10, "bold")).pack(side="right")
+        self.pdf_gallery = ThumbnailGallery(
+            card, render_thumbnail=pdf_thumbnail, on_files_drop=self.ingest_pdf, height=235)
+        self.pdf_gallery.pack(fill="both", expand=True)
+
+        options = tk.Frame(card, bg="white")
+        options.pack(fill="x", pady=(12, 0))
         tk.Label(options, text="Качество:", bg="white", fg=TEXT).pack(side="left")
         self.pdf_quality = tk.IntVar(value=65)
         ttk.Combobox(options, textvariable=self.pdf_quality, width=6, state="readonly",
                      values=(40, 50, 65, 75, 85, 95)).pack(side="left", padx=(8, 18))
-        tk.Label(options, text="Макс. размер на изображение (px):", bg="white",
-                 fg=TEXT).pack(side="left")
+        tk.Label(options, text="Макс. размер на изображение (px):",
+                 bg="white", fg=TEXT).pack(side="left")
         self.pdf_size = tk.IntVar(value=1800)
         ttk.Combobox(options, textvariable=self.pdf_size, width=7, state="readonly",
                      values=(900, 1200, 1800, 2400, 3200)).pack(side="left", padx=8)
         self._button(options, "Компресирай и запази", self.make_compressed).pack(side="right")
         self.pdf_status = tk.StringVar(value="Оригиналният PDF се запазва непроменен.")
-        tk.Label(pdf_card, textvariable=self.pdf_status, bg="white", fg="#61718A",
+        tk.Label(card, textvariable=self.pdf_status, bg="white", fg=MUTED,
                  anchor="w", font=("Segoe UI", 9)).pack(fill="x", pady=(10, 0))
-
-        from pdf_merge_ui import PdfMergeView
-        self.merger = PdfMergeView(merge_tab)
 
     @staticmethod
     def _card(parent, title, subtitle):
         card = tk.Frame(parent, bg="white", highlightbackground="#DBE4EF",
                         highlightthickness=1)
-        card.pack(fill="x", pady=(0, 16))
+        card.pack(fill="both", expand=True, padx=14, pady=14)
         body = tk.Frame(card, bg="white")
-        body.pack(fill="x", padx=20, pady=16)
+        body.pack(fill="both", expand=True, padx=18, pady=13)
         tk.Label(body, text=title, bg="white", fg=TEXT,
                  font=("Segoe UI", 13, "bold")).pack(anchor="w")
-        tk.Label(body, text=subtitle, bg="white", fg="#61718A",
-                 font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 14))
+        tk.Label(body, text=subtitle, bg="white", fg=MUTED,
+                 font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 13))
         return body
 
     @staticmethod
@@ -104,77 +174,136 @@ class PdfToolsView:
                          relief="flat", padx=13, pady=8, cursor="hand2",
                          font=("Segoe UI", 10, "bold"))
 
-    def refresh_list(self):
-        self.listbox.delete(0, tk.END)
-        for path in self.images:
-            self.listbox.insert(tk.END, Path(path).name)
-        self.image_status.set(str(len(self.images)) + " избрани изображения.")
-
     def add_images(self):
-        patterns = " ".join("*" + suffix for suffix in IMAGE_EXTENSIONS)
-        selected = filedialog.askopenfilenames(parent=self.parent,
-                      title="Избери изображения", filetypes=[("Изображения", patterns), ("Всички файлове", "*.*")])
-        for path in selected:
-            if Path(path).suffix.lower() in IMAGE_EXTENSIONS and path not in self.images:
-                self.images.append(path)
-        self.refresh_list()
+        patterns = " ".join("*" + ext for ext in IMAGE_EXTENSIONS)
+        chosen = filedialog.askopenfilenames(
+            parent=self.parent, title="Добавете изображения",
+            filetypes=[("Изображения", patterns), ("Всички файлове", "*.*")])
+        if chosen:
+            self.ingest_images(chosen)
 
-    def remove_images(self):
-        for index in reversed(self.listbox.curselection()):
-            self.images.pop(index)
-        self.refresh_list()
+    def ingest_images(self, paths):
+        errors = []
+        added = 0
+        for path in paths:
+            if Path(path).suffix.lower() not in IMAGE_EXTENSIONS:
+                errors.append(Path(path).name + ": неподдържан формат")
+                continue
+            try:
+                for item in image_pages([path]):
+                    if item not in self.images:
+                        self.images.append(item)
+                        added += 1
+            except (ValueError, OSError) as exc:
+                errors.append(str(exc))
+        if added:
+            self.image_gallery.set_items(self.images, selected=len(self.images)-1)
+        self.image_count.set(f"{len(self.images)} страници")
+        self.image_status.set(f"{added} нови страници · {len(self.images)} общо")
+        if errors:
+            messagebox.showwarning("Неуспешно добавяне", "\n".join(errors[:8]),
+                                   parent=self.parent)
+
+    def _reorder_images(self, start, target):
+        if 0 <= start < len(self.images) and 0 <= target < len(self.images):
+            entry = self.images.pop(start)
+            self.images.insert(target, entry)
+            self.image_gallery.set_items(self.images, selected=target)
 
     def move(self, offset):
-        selected = self.listbox.curselection()
-        if len(selected) != 1:
+        index = self.image_gallery.selected
+        if index is not None:
+            self._reorder_images(index, index + offset)
+
+    def remove_images(self):
+        index = self.image_gallery.selected
+        if index is None:
             return
-        index = selected[0]
-        destination = index + offset
-        if not 0 <= destination < len(self.images):
-            return
-        self.images[index], self.images[destination] = self.images[destination], self.images[index]
-        self.refresh_list()
-        self.listbox.selection_set(destination)
+        self.images.pop(index)
+        self.image_gallery.set_items(self.images, selected=min(index, len(self.images)-1))
+        self.image_count.set(f"{len(self.images)} страници")
+
+    def clear_images(self):
+        self.images.clear()
+        self.image_gallery.clear()
+        self.image_count.set("0 страници")
+        self.image_status.set("Добавете снимки с drag-and-drop или с бутона +.")
 
     def make_pdf(self):
         if not self.images:
-            messagebox.showwarning("Изображения", "Първо добавете изображения.", parent=self.parent)
+            messagebox.showwarning("Изображения", "Първо добавете изображения.",
+                                   parent=self.parent)
             return
-        target = filedialog.asksaveasfilename(parent=self.parent, title="Запази PDF",
-                   defaultextension=".pdf", initialfile="images.pdf", filetypes=[("PDF", "*.pdf")])
+        target = filedialog.asksaveasfilename(
+            parent=self.parent, title="Запази PDF", defaultextension=".pdf",
+            initialfile="images.pdf", filetypes=[("PDF", "*.pdf")])
         if not target:
             return
         try:
-            pages = images_to_pdf(self.images, target, quality=self.image_quality.get())
-            self.image_status.set("Създаден PDF: " + Path(target).name + " (" + str(pages) + " стр.)")
-            messagebox.showinfo("Готово", "PDF файлът е запазен:\n" + target, parent=self.parent)
+            count = images_to_pdf(self.images, target, quality=self.image_quality.get())
+            self.image_status.set(f"Създаден PDF: {Path(target).name} ({count} стр.)")
+            messagebox.showinfo("Готово", "PDF файлът е запазен:\n" + target,
+                                parent=self.parent)
         except Exception as exc:
             messagebox.showerror("Грешка", str(exc), parent=self.parent)
 
     def select_pdf(self):
-        path = filedialog.askopenfilename(parent=self.parent, title="Избери PDF",
-                                          filetypes=[("PDF", "*.pdf")])
-        if path:
-            self.pdf_source = path
-            self.pdf_label.set(Path(path).name)
+        chosen = filedialog.askopenfilename(
+            parent=self.parent, title="Изберете PDF файл",
+            filetypes=[("PDF", "*.pdf")])
+        if chosen:
+            self.ingest_pdf([chosen])
+
+    def ingest_pdf(self, paths):
+        if not paths:
+            return
+        if len(paths) != 1:
+            messagebox.showwarning(
+                "Само един PDF", "Компресирането обработва по един PDF файл. "
+                "За обединяване на няколко файла използвайте раздела „Обединяване на PDF“.",
+                parent=self.parent)
+            return
+        try:
+            pages = pages_from_pdf(paths[0])
+        except (ValueError, OSError) as exc:
+            messagebox.showerror("Невалиден PDF", str(exc), parent=self.parent)
+            return
+        self.pdf_source = str(Path(paths[0]).expanduser().resolve())
+        self.pdf_pages = pages
+        self.pdf_label.set(Path(self.pdf_source).name)
+        self.pdf_count.set(f"{len(pages)} страници")
+        self.pdf_gallery.set_items(pages)
+        self.pdf_status.set("Избраният PDF ще бъде компресиран изцяло. Оригиналът остава непроменен.")
+
+    def clear_pdf(self):
+        self.pdf_source = None
+        self.pdf_pages.clear()
+        self.pdf_gallery.clear()
+        self.pdf_label.set("Няма избран PDF файл.")
+        self.pdf_count.set("0 страници")
+        self.pdf_status.set("Оригиналният PDF се запазва непроменен.")
 
     def make_compressed(self):
         if not self.pdf_source:
-            messagebox.showwarning("PDF", "Първо изберете PDF файл.", parent=self.parent)
+            messagebox.showwarning("PDF", "Първо изберете PDF файл.",
+                                   parent=self.parent)
             return
         source = Path(self.pdf_source)
-        target = filedialog.asksaveasfilename(parent=self.parent, title="Запази компресиран PDF",
-                   defaultextension=".pdf", initialfile=source.stem + "_compressed.pdf",
-                   filetypes=[("PDF", "*.pdf")])
+        target = filedialog.asksaveasfilename(
+            parent=self.parent, title="Запази компресиран PDF",
+            defaultextension=".pdf", initialfile=source.stem + "_compressed.pdf",
+            filetypes=[("PDF", "*.pdf")])
         if not target:
             return
         try:
             result = compress_pdf(source, target, quality=self.pdf_quality.get(),
                                   max_dimension=self.pdf_size.get())
-            self.pdf_status.set("Преди: " + format(result.original_bytes / 1024, ".1f") +
-                " KB | След: " + format(result.output_bytes / 1024, ".1f") +
-                " KB | Спестени: " + format(result.saved_percent, ".1f") + "%")
-            messagebox.showinfo("Готово", "PDF файлът е запазен:\n" + target, parent=self.parent)
+            self.pdf_status.set(
+                f"Преди: {result.original_bytes / 1024:.1f} KB | "
+                f"След: {result.output_bytes / 1024:.1f} KB | "
+                f"Спестени: {result.saved_percent:.1f}%")
+            messagebox.showinfo("Готово", "PDF файлът е запазен:\n" + target,
+                                parent=self.parent)
         except Exception as exc:
             messagebox.showerror("Грешка", str(exc), parent=self.parent)
 

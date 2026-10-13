@@ -22,10 +22,12 @@ class PdfDropGuiTests(unittest.TestCase):
             root_path = Path(folder)
             first = root_path / "scan one.png"
             second = root_path / "scan two.webp"
+            added_image = root_path / "additional.png"
             frames = root_path / "animation.gif"
             pdf = root_path / "multi page.pdf"
             Image.new("RGB", (360, 480), "#3399BB").save(first)
             Image.new("RGB", (440, 240), "#BB7733").save(second)
+            Image.new("RGB", (250, 300), "#558844").save(added_image)
             Image.new("RGB", (200, 300), "red").save(
                 frames, save_all=True, append_images=[Image.new("RGB", (200, 300), "blue")],
                 duration=500)
@@ -59,6 +61,15 @@ class PdfDropGuiTests(unittest.TestCase):
                 root.update()
                 self.assertEqual(len(view.images), 4)  # 2 images + 2 GIF frames
                 self.assertEqual(len(view.image_gallery.tiles), 4)
+                # Upload zone becomes one compact final tile beside previews.
+                self.assertFalse(view.image_drop.winfo_ismapped())
+                self.assertTrue(view.image_gallery.winfo_ismapped())
+                self.assertTrue(view.image_gallery.add_tile.winfo_ismapped())
+                self.assertEqual(view.image_gallery.add_tile._page_index
+                                 if hasattr(view.image_gallery.add_tile, "_page_index")
+                                 else None, None)
+                self.assertEqual(len(view.image_gallery.add_canvas.find_withtag("add_outline")), 1)
+                self.assertTrue(view.image_gallery.add_canvas.dnd_bind("<<Drop>>"))
                 self._wait_for_images(root, view.image_gallery)
                 self.assertTrue(all(tile.preview_label.cget("image")
                                     for tile in view.image_gallery.tiles))
@@ -72,6 +83,14 @@ class PdfDropGuiTests(unittest.TestCase):
                 from pdf_tools import images_to_pdf
                 images_to_pdf(view.images, output)
                 self.assertEqual(len(PdfReader(str(output)).pages), 4)
+                with patch("pdf_tools_ui.filedialog.askopenfilenames",
+                           return_value=(str(added_image),)):
+                    view.image_gallery.add_canvas.event_generate("<Button-1>", x=65, y=98)
+                root.update()
+                self.assertEqual(len(view.images), 5)
+                self.assertEqual(len(view.image_gallery.tiles), 5)
+                self.assertTrue(view.image_gallery.add_tile.winfo_ismapped())
+                self.assertFalse(view.image_drop.winfo_ismapped())
 
                 # Input errors must leave the selected source and previews intact.
                 view.tool_tabs.select(1)
@@ -79,6 +98,9 @@ class PdfDropGuiTests(unittest.TestCase):
                 view.ingest_pdf([str(pdf)])
                 root.update()
                 self.assertEqual(len(view.pdf_pages), 2)
+                self.assertFalse(view.pdf_drop.winfo_ismapped())
+                self.assertTrue(view.pdf_gallery.add_tile.winfo_ismapped())
+                self.assertTrue(view.pdf_gallery.add_canvas.dnd_bind("<<Drop>>"))
                 self._wait_for_images(root, view.pdf_gallery)
                 self.assertTrue(all(tile.preview_label.cget("image")
                                     for tile in view.pdf_gallery.tiles))
@@ -87,11 +109,34 @@ class PdfDropGuiTests(unittest.TestCase):
                     view.ingest_pdf([str(pdf), str(output)])
                 self.assertEqual(view.pdf_source, old)
                 self.assertEqual(len(view.pdf_gallery.tiles), 2)
+                # The inline '+' replaces a PDF (it does not merge files).
+                with patch("pdf_tools_ui.filedialog.askopenfilename",
+                           return_value=str(output)):
+                    view.pdf_gallery.add_canvas.event_generate("<Button-1>", x=65, y=98)
+                root.update()
+                self.assertEqual(view.pdf_source, str(output))
+                self.assertEqual(len(view.pdf_pages), 4)
+                self.assertTrue(view.pdf_gallery.add_tile.winfo_ismapped())
                 view.clear_pdf()
+                root.update()
+                self.assertTrue(view.pdf_drop.winfo_ismapped())
+                self.assertFalse(view.pdf_gallery.winfo_ismapped())
+                self.assertFalse(view.pdf_gallery.add_tile.winfo_ismapped())
                 self.assertIsNone(view.pdf_source)
                 self.assertEqual(len(view.pdf_gallery.tiles), 0)
                 view.clear_images()
+                root.update()
                 self.assertEqual(view.images, [])
+                self.assertTrue(view.image_drop.winfo_ismapped())
+                self.assertFalse(view.image_gallery.winfo_ismapped())
+                self.assertFalse(view.image_gallery.add_tile.winfo_ismapped())
+                view.ingest_images([str(first)])
+                root.update()
+                self.assertTrue(view.image_gallery.add_tile.winfo_ismapped())
+                view.remove_images()
+                root.update()
+                self.assertEqual(len(view.images), 0)
+                self.assertTrue(view.image_drop.winfo_ismapped())
             finally:
                 root.destroy()
 

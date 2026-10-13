@@ -83,11 +83,14 @@ class ThumbnailGallery(tk.Frame):
     TILE_HEIGHT = 246
 
     def __init__(self, parent, *, render_thumbnail, on_reorder=None,
-                 on_files_drop=None, height=275):
+                 on_files_drop=None, on_add=None, add_caption="Добави още",
+                 height=275):
         super().__init__(parent, bg="white")
         self.render_thumbnail = render_thumbnail
         self.on_reorder = on_reorder
         self.on_files_drop = on_files_drop
+        self.on_add = on_add
+        self.add_caption = add_caption
         self.items = []
         self.tiles = []
         self.cache = {}
@@ -105,12 +108,73 @@ class ThumbnailGallery(tk.Frame):
         self.canvas.configure(yscrollcommand=scrollbar.set)
         self.inner = tk.Frame(self.canvas, bg="white")
         self.canvas.create_window((12, 12), window=self.inner, anchor="nw")
+        self.add_tile = None
+        self.add_canvas = None
+        if self.on_add:
+            self._create_add_tile()
         self.inner.bind("<Configure>", self._update_scrollregion)
         self.canvas.bind("<Configure>", self._resize)
         self.canvas.bind("<MouseWheel>", self._wheel)
         if on_files_drop:
             for widget in (self, self.canvas, self.inner):
                 bind_file_drop(widget, on_files_drop)
+
+    def _create_add_tile(self):
+        """The final, compact dashed page is an action, not an exportable page."""
+        self.add_tile = tk.Frame(
+            self.inner, bg="white", width=self.TILE_WIDTH,
+            height=self.TILE_HEIGHT, highlightthickness=0
+        )
+        self.add_tile.grid_propagate(False)
+        self.add_canvas = tk.Canvas(
+            self.add_tile, bg="#F7FAFF", cursor="hand2",
+            highlightthickness=0, bd=0, width=self.TILE_WIDTH,
+            height=self.TILE_HEIGHT,
+        )
+        self.add_canvas.pack(fill="both", expand=True)
+        self.add_canvas.bind("<Configure>", self._draw_add_tile)
+        self.add_canvas.bind("<Button-1>", lambda event: self.on_add())
+        if self.on_files_drop:
+            for widget in (self.add_tile, self.add_canvas):
+                bind_file_drop(widget, self.on_files_drop,
+                               on_hover=self._highlight_add_tile)
+
+    def _highlight_add_tile(self, hovering):
+        self._draw_add_tile(hovering=hovering)
+
+    def _draw_add_tile(self, event=None, *, hovering=False):
+        canvas = self.add_canvas
+        if canvas is None:
+            return
+        width = self.TILE_WIDTH
+        height = self.TILE_HEIGHT
+        accent = BLUE if hovering else BORDER
+        canvas.delete("all")
+        canvas.configure(bg="#EAF2FF" if hovering else "#F7FAFF")
+        canvas.create_rectangle(
+            6, 6, width - 7, height - 7, dash=(6, 5),
+            outline=accent, width=2, tags="add_outline",
+        )
+        left, top, right, bottom = 51, 43, 113, 129
+        canvas.create_polygon(
+            left, top, right - 16, top, right, top + 16,
+            right, bottom, left, bottom, fill="white",
+            outline=BLUE, width=2,
+        )
+        canvas.create_line(
+            right - 16, top, right - 16, top + 16, right, top + 16,
+            fill=BLUE, width=2,
+        )
+        canvas.create_text(width / 2, 91, text="+",
+                           font=("Segoe UI", 28, "bold"), fill=BLUE)
+        canvas.create_text(
+            width / 2, 165, text=self.add_caption,
+            font=("Segoe UI", 11, "bold"), fill=INK,
+        )
+        canvas.create_text(
+            width / 2, 192, text="Натисни или пусни файл",
+            font=("Segoe UI", 8), fill=MUTED,
+        )
 
     def _update_scrollregion(self, event=None):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -126,20 +190,7 @@ class ThumbnailGallery(tk.Frame):
             self._layout()
 
     def clear(self):
-        if self.job is not None:
-            try:
-                self.after_cancel(self.job)
-            except tk.TclError:
-                pass
-        self.job = None
-        self.generation += 1
-        self.pending.clear()
-        self.drag_from = None
-        for tile in self.tiles:
-            tile.destroy()
-        self.tiles.clear()
-        self.items = []
-        self.selected = None
+        self.clear_tiles()
         self.cache.clear()
 
     def set_items(self, items, *, selected=None):
@@ -195,6 +246,8 @@ class ThumbnailGallery(tk.Frame):
         self.tiles = []
         self.items = []
         self.selected = None
+        if self.add_tile is not None:
+            self.add_tile.grid_remove()
 
     def _layout(self):
         columns = max(1, self.columns)
@@ -202,6 +255,15 @@ class ThumbnailGallery(tk.Frame):
             tile._page_index = index
             tile.grid(row=index // columns, column=index % columns,
                       sticky="nw", padx=(0, 12), pady=(0, 12))
+        # Always append the "+" after the real page thumbnails. It must
+        # never count as a selected page or be included in PDF conversion.
+        if self.add_tile is not None:
+            if self.items:
+                index = len(self.items)
+                self.add_tile.grid(row=index // columns, column=index % columns,
+                                   sticky="nw", padx=(0, 12), pady=(0, 12))
+            else:
+                self.add_tile.grid_remove()
         self._update_scrollregion()
 
     def _hit(self, event):

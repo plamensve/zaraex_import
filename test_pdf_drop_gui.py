@@ -124,6 +124,9 @@ class PdfDropGuiTests(unittest.TestCase):
                 self.assertFalse(view.pdf_gallery.add_tile.winfo_ismapped())
                 self.assertIsNone(view.pdf_source)
                 self.assertEqual(len(view.pdf_gallery.tiles), 0)
+                # A hidden notebook tab cannot be "mapped" until activated.
+                view.tool_tabs.select(0)
+                root.update()
                 view.clear_images()
                 root.update()
                 self.assertEqual(view.images, [])

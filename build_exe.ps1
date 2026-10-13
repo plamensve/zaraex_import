@@ -13,8 +13,8 @@ python -m pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed." }
 
 # Verify the unified Tkinter shell and embedded E_STAY_GEN widgets on Windows.
-python -m unittest -v test_stay_gui_smoke
-if ($LASTEXITCODE -ne 0) { throw "Integrated Tkinter UI smoke test failed." }
+python -m unittest -v test_stay_gui_smoke test_pdf_merge_gui
+if ($LASTEXITCODE -ne 0) { throw "Integrated Tkinter/PDF UI smoke test failed." }
 
 # Enlarge the artwork within the ICO canvas before attaching it to the EXE.
 python optimize_icon.py
@@ -33,6 +33,8 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed `
     --add-data "nap_stay\data\municipality.xlsx;nap_stay/data" `
     --add-data "nap_stay\data\city.xlsx;nap_stay/data" `
     --add-data "nap_stay\data\eStayGen_ico.ico;nap_stay/data" `
+    --collect-all "tkinterdnd2" `
+    --collect-all "pypdfium2" `
     --hidden-import "tkcalendar" `
     --hidden-import "babel.numbers" `
     --collect-data "babel" `

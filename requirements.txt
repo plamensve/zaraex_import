@@ -3,3 +3,5 @@ openpyxl>=3.1,<4
 tkcalendar>=1.6.1,<2
 Pillow>=10,<13
 pypdf>=5.1,<7
+pypdfium2>=4.30,<6
+tkinterdnd2>=0.4.2,<1

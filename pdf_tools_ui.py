@@ -19,10 +19,19 @@ class PdfToolsView:
         container.pack(fill="both", expand=True, padx=22, pady=18)
         tk.Label(container, text="PDF инструменти", bg=BG, fg=TEXT,
                  font=("Segoe UI", 20, "bold")).pack(anchor="w")
-        tk.Label(container, text="Конвертирайте изображения и оптимизирайте PDF файлове локално.",
+        tk.Label(container, text="Създавайте, компресирайте и обединявайте PDF файлове локално.",
                  bg=BG, fg="#61718A", font=("Segoe UI", 10)).pack(anchor="w", pady=(4, 16))
 
-        images_card = self._card(container, "Изображения към PDF",
+        self.tool_tabs = ttk.Notebook(container)
+        self.tool_tabs.pack(fill="both", expand=True)
+        image_tab = tk.Frame(self.tool_tabs, bg=BG)
+        compress_tab = tk.Frame(self.tool_tabs, bg=BG)
+        merge_tab = tk.Frame(self.tool_tabs, bg=BG)
+        self.tool_tabs.add(image_tab, text="  Изображения към PDF  ")
+        self.tool_tabs.add(compress_tab, text="  Компресиране на PDF  ")
+        self.tool_tabs.add(merge_tab, text="  Обединяване на PDF  ")
+
+        images_card = self._card(image_tab, "Изображения към PDF",
                                  "Добавете изображения. Редът в списъка определя реда на страниците.")
         actions = tk.Frame(images_card, bg="white")
         actions.pack(fill="x", pady=(0, 8))
@@ -46,7 +55,7 @@ class PdfToolsView:
         tk.Label(images_card, textvariable=self.image_status, bg="white", fg="#61718A",
                  anchor="w", font=("Segoe UI", 9)).pack(fill="x", pady=(8, 0))
 
-        pdf_card = self._card(container, "Намаляване размера на PDF",
+        pdf_card = self._card(compress_tab, "Намаляване размера на PDF",
                               "Компресирайте изображенията вътре в PDF, без да превръщате текста в снимка.")
         chooser = tk.Frame(pdf_card, bg="white")
         chooser.pack(fill="x")
@@ -69,6 +78,9 @@ class PdfToolsView:
         self.pdf_status = tk.StringVar(value="Оригиналният PDF се запазва непроменен.")
         tk.Label(pdf_card, textvariable=self.pdf_status, bg="white", fg="#61718A",
                  anchor="w", font=("Segoe UI", 9)).pack(fill="x", pady=(10, 0))
+
+        from pdf_merge_ui import PdfMergeView
+        self.merger = PdfMergeView(merge_tab)
 
     @staticmethod
     def _card(parent, title, subtitle):

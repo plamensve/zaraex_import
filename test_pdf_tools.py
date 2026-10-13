@@ -62,6 +62,22 @@ class PdfToolsTests(unittest.TestCase):
             self.assertEqual(len(reader.pages), 2)
             self.assertIn("Searchable invoice text", reader.pages[1].extract_text())
 
+    def test_animated_gif_previews_match_export_order(self):
+        from pdf_tools import ImagePage, image_pages
+        with TemporaryDirectory() as directory:
+            folder = Path(directory)
+            animation = folder / "frames.gif"
+            Image.new("RGB", (190, 270), "red").save(
+                animation, format="GIF", save_all=True,
+                append_images=[Image.new("RGB", (190, 270), "green")], duration=300
+            )
+            pages = image_pages([animation])
+            self.assertEqual(pages, [ImagePage(str(animation), 0),
+                                     ImagePage(str(animation), 1)])
+            output = folder / "pages.pdf"
+            images_to_pdf(list(reversed(pages)), output)
+            self.assertEqual(len(PdfReader(str(output)).pages), 2)
+
     def test_no_images_copy_original_and_no_overwrite(self):
         with TemporaryDirectory() as folder:
             source = Path(folder) / "plain.pdf"

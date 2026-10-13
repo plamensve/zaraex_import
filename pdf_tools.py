@@ -11,6 +11,30 @@ from pypdf import PdfReader, PdfWriter
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tif", ".tiff")
 
+@dataclass(frozen=True)
+class ImagePage:
+    source: str
+    frame: int = 0
+
+
+def image_pages(paths):
+    """List each image frame as a separate PDF page, preserving file order."""
+    pages = []
+    for raw in paths:
+        path = Path(raw).expanduser().resolve()
+        if path.suffix.lower() not in IMAGE_EXTENSIONS or not path.is_file():
+            raise ValueError("Невалидно изображение: " + path.name)
+        try:
+            with Image.open(path) as image:
+                # Decode the first frame to detect invalid image content early.
+                image.load()
+                pages.extend(ImagePage(str(path), index)
+                             for index in range(getattr(image, "n_frames", 1)))
+        except (OSError, ValueError) as exc:
+            raise ValueError("Неуспешно отваряне: " + path.name) from exc
+    return pages
+
+
 
 @dataclass(frozen=True)
 class CompressionResult:
@@ -34,24 +58,33 @@ def _rgb(image):
 
 
 def images_to_pdf(paths, output_path, *, dpi=150, quality=88):
-    paths = [Path(p) for p in paths]
-    if not paths:
+    """Export image frames in preview order; old path-list callers still work."""
+    pages = []
+    for item in paths:
+        if isinstance(item, ImagePage):
+            pages.append(item)
+        else:
+            pages.extend(image_pages([item]))
+    if not pages:
         raise ValueError("Изберете поне едно изображение.")
     if not 30 <= dpi <= 600 or not 25 <= quality <= 95:
         raise ValueError("Невалидни настройки.")
-    if any(not p.is_file() or p.suffix.lower() not in IMAGE_EXTENSIONS for p in paths):
-        raise ValueError("Неподдържан формат или липсващо изображение.")
-    if any(os.path.normcase(os.path.abspath(p)) == os.path.normcase(os.path.abspath(output_path)) for p in paths):
+    output = Path(output_path).expanduser().resolve()
+    if any(os.path.normcase(os.path.abspath(p.source)) ==
+           os.path.normcase(os.path.abspath(output)) for p in pages):
         raise ValueError("Изходният файл трябва да е различен от входния.")
     frames = []
-    for path in paths:
+    for item in pages:
+        path = Path(item.source)
+        if path.suffix.lower() not in IMAGE_EXTENSIONS or not path.is_file():
+            raise ValueError("Неподдържано изображение: " + path.name)
         try:
             with Image.open(path) as image:
-                for frame in ImageSequence.Iterator(image):
-                    frames.append(_rgb(frame.copy()))
-        except OSError as exc:
+                image.seek(item.frame)
+                frames.append(_rgb(image.copy()))
+        except (OSError, ValueError, EOFError) as exc:
             raise ValueError("Неуспешно отваряне: " + path.name) from exc
-    frames[0].save(str(output_path), "PDF", save_all=True,
+    frames[0].save(str(output), "PDF", save_all=True,
                    append_images=frames[1:], resolution=dpi, quality=quality)
     return len(frames)
 

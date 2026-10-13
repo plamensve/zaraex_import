@@ -83,7 +83,7 @@ class PdfToolsView:
         self.image_drop.pack(fill="x", pady=(0, 13))
 
         toolbar = tk.Frame(card, bg="white")
-        toolbar.pack(fill="x", pady=(0, 9))
+        self.image_toolbar = toolbar
         self._button(toolbar, "Добави още", self.add_images, primary=False).pack(side="left")
         self._button(toolbar, "Премахни избраната", self.remove_images, primary=False).pack(
             side="left", padx=(8, 0))
@@ -99,9 +99,10 @@ class PdfToolsView:
 
         self.image_gallery = ThumbnailGallery(
             card, render_thumbnail=image_thumbnail, on_reorder=self._reorder_images,
-            on_files_drop=self.ingest_images, height=235)
-        self.image_gallery.pack(fill="both", expand=True)
+            on_files_drop=self.ingest_images, on_add=self.add_images,
+            add_caption="Добави още", height=275)
         actions = tk.Frame(card, bg="white")
+        self.image_actions = actions
         actions.pack(fill="x", pady=(12, 0))
         tk.Label(actions, text="Качество:", bg="white", fg=TEXT).pack(side="left")
         self.image_quality = tk.IntVar(value=88)
@@ -122,7 +123,7 @@ class PdfToolsView:
         self.pdf_drop.pack(fill="x", pady=(0, 13))
 
         toolbar = tk.Frame(card, bg="white")
-        toolbar.pack(fill="x", pady=(0, 9))
+        self.pdf_toolbar = toolbar
         self._button(toolbar, "Избери друг PDF", self.select_pdf, primary=False).pack(side="left")
         self._button(toolbar, "Премахни PDF", self.clear_pdf, primary=False).pack(
             side="left", padx=8)
@@ -133,10 +134,12 @@ class PdfToolsView:
         tk.Label(toolbar, textvariable=self.pdf_count, bg="white", fg=NAVY,
                  font=("Segoe UI", 10, "bold")).pack(side="right")
         self.pdf_gallery = ThumbnailGallery(
-            card, render_thumbnail=pdf_thumbnail, on_files_drop=self.ingest_pdf, height=235)
-        self.pdf_gallery.pack(fill="both", expand=True)
+            card, render_thumbnail=pdf_thumbnail, on_files_drop=self.ingest_pdf,
+            on_add=self.select_pdf, add_caption="Избери друг PDF",
+            height=275)
 
         options = tk.Frame(card, bg="white")
+        self.pdf_options = options
         options.pack(fill="x", pady=(12, 0))
         tk.Label(options, text="Качество:", bg="white", fg=TEXT).pack(side="left")
         self.pdf_quality = tk.IntVar(value=65)
@@ -174,6 +177,33 @@ class PdfToolsView:
                          relief="flat", padx=13, pady=8, cursor="hand2",
                          font=("Segoe UI", 10, "bold"))
 
+    def _sync_image_presentation(self):
+        """Only one upload surface is visible: large empty or final '+' tile."""
+        if self.images:
+            self.image_drop.pack_forget()
+            self.image_toolbar.pack(fill="x", pady=(0, 9),
+                                    before=self.image_actions)
+            self.image_gallery.pack(fill="both", expand=True,
+                                    before=self.image_actions)
+        else:
+            self.image_toolbar.pack_forget()
+            self.image_gallery.pack_forget()
+            self.image_drop.pack(fill="x", pady=(0, 13),
+                                 before=self.image_actions)
+
+    def _sync_pdf_presentation(self):
+        if self.pdf_pages:
+            self.pdf_drop.pack_forget()
+            self.pdf_toolbar.pack(fill="x", pady=(0, 9),
+                                  before=self.pdf_options)
+            self.pdf_gallery.pack(fill="both", expand=True,
+                                  before=self.pdf_options)
+        else:
+            self.pdf_toolbar.pack_forget()
+            self.pdf_gallery.pack_forget()
+            self.pdf_drop.pack(fill="x", pady=(0, 13),
+                               before=self.pdf_options)
+
     def add_images(self):
         patterns = " ".join("*" + ext for ext in IMAGE_EXTENSIONS)
         chosen = filedialog.askopenfilenames(
@@ -197,6 +227,7 @@ class PdfToolsView:
             except (ValueError, OSError) as exc:
                 errors.append(str(exc))
         if added:
+            self._sync_image_presentation()
             self.image_gallery.set_items(self.images, selected=len(self.images)-1)
         self.image_count.set(f"{len(self.images)} страници")
         self.image_status.set(f"{added} нови страници · {len(self.images)} общо")
@@ -221,11 +252,13 @@ class PdfToolsView:
             return
         self.images.pop(index)
         self.image_gallery.set_items(self.images, selected=min(index, len(self.images)-1))
+        self._sync_image_presentation()
         self.image_count.set(f"{len(self.images)} страници")
 
     def clear_images(self):
         self.images.clear()
         self.image_gallery.clear()
+        self._sync_image_presentation()
         self.image_count.set("0 страници")
         self.image_status.set("Добавете снимки с drag-and-drop или с бутона +.")
 
@@ -272,6 +305,7 @@ class PdfToolsView:
         self.pdf_pages = pages
         self.pdf_label.set(Path(self.pdf_source).name)
         self.pdf_count.set(f"{len(pages)} страници")
+        self._sync_pdf_presentation()
         self.pdf_gallery.set_items(pages)
         self.pdf_status.set("Избраният PDF ще бъде компресиран изцяло. Оригиналът остава непроменен.")
 
@@ -279,6 +313,7 @@ class PdfToolsView:
         self.pdf_source = None
         self.pdf_pages.clear()
         self.pdf_gallery.clear()
+        self._sync_pdf_presentation()
         self.pdf_label.set("Няма избран PDF файл.")
         self.pdf_count.set("0 страници")
         self.pdf_status.set("Оригиналният PDF се запазва непроменен.")

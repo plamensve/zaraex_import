@@ -16,13 +16,13 @@ from app import (
 class FooterTests(unittest.TestCase):
     def test_footer_contains_one_owner_and_separate_version(self):
         self.assertEqual(APP_TITLE, "ZaraEx Import Generator")
-        self.assertEqual(APP_VERSION, "1.0.0")
+        self.assertEqual(APP_VERSION, "2.0.0")
         self.assertEqual(APP_AUTHOR, "Plamen Svetoslavov")
         self.assertEqual(
             COPYRIGHT_NOTICE,
             "© 2026 Plamen Svetoslavov. Всички права запазени.",
         )
-        self.assertEqual(APP_VERSION_LABEL, "Версия 1.0.0")
+        self.assertEqual(APP_VERSION_LABEL, "Версия 2.0.0")
         self.assertEqual(COPYRIGHT_NOTICE.count(APP_AUTHOR), 1)
         self.assertNotIn(APP_AUTHOR, APP_VERSION_LABEL)
         self.assertNotIn("Created by", COPYRIGHT_NOTICE)

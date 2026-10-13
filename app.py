@@ -333,16 +333,20 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         self.main_tab = ttk.Frame(self.notebook)
         self.settings_tab = ttk.Frame(self.notebook)
         self.stay_tab = ttk.Frame(self.notebook)
+        self.pdf_tab = ttk.Frame(self.notebook)
 
         self.notebook.add(self.main_tab, text="ZaraEx – Товарения")
         self.notebook.add(self.settings_tab, text="ZaraEx – Настройки")
         self.notebook.add(self.stay_tab, text="НАП – Декларации за престой")
+        self.notebook.add(self.pdf_tab, text="PDF инструменти")
 
         self.build_main_tab()
         self.build_settings_tab()
 
         from nap_stay import create_stay_tab
         self.save_stay_addresses = create_stay_tab(self.stay_tab)
+        from pdf_tools_ui import create_pdf_tab
+        self.pdf_tools = create_pdf_tab(self.pdf_tab)
         self.build_home_page()
         self.show_home()
         self.protocol("WM_DELETE_WINDOW", self.close_application)
@@ -360,15 +364,17 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         modules = {
             "import": (self.main_tab, self.settings_tab),
             "stay": (self.stay_tab,),
+            "pdf": (self.pdf_tab,),
         }
         visible_tabs = modules[module]
         self.home_page.pack_forget()
-        for tab in (self.main_tab, self.settings_tab, self.stay_tab):
+        for tab in (self.main_tab, self.settings_tab, self.stay_tab, self.pdf_tab):
             self.notebook.tab(tab, state="normal" if tab in visible_tabs else "hidden")
         self.notebook.select(visible_tabs[0])
         self.notebook.pack(fill="both", expand=True, padx=14, pady=14)
         self.workspace_title.set(
-            "Импортен файл" if module == "import" else "НАП – Декларации за престой"
+            {"import": "Импортен файл", "stay": "НАП – Декларации за престой",
+             "pdf": "PDF инструменти"}[module]
         )
         self.home_button.configure(state="normal")
         self.notebook.focus_set()
@@ -382,7 +388,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         hero = tk.Frame(content, bg="#132E50")
         hero.pack(fill="x")
         tk.Label(
-            hero, text="ЕДНО ПРИЛОЖЕНИЕ · ДВА РАБОТНИ ПРОЦЕСА",
+            hero, text="ЕДНО ПРИЛОЖЕНИЕ · ТРИ РАБОТНИ ПРОЦЕСА",
             bg="#132E50", fg="#94B9EB", font=("Segoe UI", 9, "bold"),
         ).pack(anchor="w", padx=28, pady=(22, 8))
         tk.Label(
@@ -409,6 +415,7 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
         cards.pack(fill="both", expand=True)
         cards.columnconfigure(0, weight=1, uniform="module")
         cards.columnconfigure(1, weight=1, uniform="module")
+        cards.columnconfigure(2, weight=1, uniform="module")
         cards.rowconfigure(0, weight=1)
         self.module_buttons = {}
         self.build_module_card(
@@ -424,6 +431,13 @@ class ZaraExApp(SettingsEditorMixin, tk.Tk):
             description="Заредете ЕДП XML и подгответе\nдекларация за престой за НАП.",
             features="Област, община и населено място\nЗапазени адреси и XML декларации",
             action="Отвори декларациите  →",
+        )
+        self.build_module_card(
+            cards, column=2, module="pdf", badge="PDF", accent="#6D4FA8",
+            tint="#F2EDFA", title="PDF инструменти",
+            description="Преобразувайте изображения в PDF\nили намалете размера на PDF.",
+            features="JPG, PNG, WebP, TIFF и други\nКомпресиране на PDF файлове",
+            action="Отвори PDF инструментите  →",
         )
         tk.Label(
             content, text="Можете да сменяте модула от „Начало“, без да губите въведените данни.",

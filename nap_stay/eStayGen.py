@@ -21,8 +21,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, "nap_stay", relative_path)
 
 
-selected_file = None  # Глобална променлива за избрания входен файл
-output_file_path = None  # Глобална променлива за избрания изходен файл
+selected_file = None  # Избраният входен XML файл
 
 
 # --- Зареждане на данни от xlsx файловете ---
@@ -277,20 +276,9 @@ def browse_file():
         file_label.config(text=f"Избран файл:\n{os.path.basename(file_path)}")
 
 
-def choose_save_location():
-    global output_file_path
-    file_path = filedialog.asksaveasfilename(defaultextension=".xml", filetypes=[("XML файлове", "*.xml")])
-    if file_path:
-        output_file_path = file_path
-        save_label.config(text=f"Изходен файл:\n{os.path.basename(file_path)}")
-
-
 def generate_output():
     if not selected_file:
         messagebox.showwarning("Липсва файл", "Моля, първо изберете XML файл.")
-        return
-    if not output_file_path:
-        messagebox.showwarning("Липсва място за запис", "Моля, изберете къде да се запази изходният XML файл.")
         return
     if not region_code_var.get() or not municipality_code_var.get() or not city_code_var.get():
         messagebox.showwarning("Липсва код", "Моля, изберете валидна област, община и населено място.")
@@ -301,8 +289,18 @@ def generate_output():
     if number_entry.get() == "" or number_entry.get() == "№":
         messagebox.showwarning("Липсва номер", "Моля, въведете номер.")
         return
+    proposed_name = os.path.splitext(os.path.basename(selected_file))[0] + "_stay.xml"
+    output_path = filedialog.asksaveasfilename(
+        title="Запази декларацията за престой", defaultextension=".xml",
+        initialfile=proposed_name, filetypes=[("XML файлове", "*.xml")],
+    )
+    if not output_path:  # Cancel: keep the form and selected input intact.
+        return
+    if os.path.normcase(os.path.abspath(selected_file)) == os.path.normcase(os.path.abspath(output_path)):
+        messagebox.showerror("Невалиден път", "Изходният XML не може да презапише входния ЕДП файл.")
+        return
     try:
-        output = convert_xml(selected_file, output_file_path)
+        output = convert_xml(selected_file, output_path)
         messagebox.showinfo("Успех", f"Файлът е създаден:\n{output}")
         clear_fields()
     except Exception as e:
@@ -311,6 +309,8 @@ def generate_output():
 
 # Функция за изчистване на всички полета
 def clear_fields():
+    global selected_file
+    selected_file = None
     # Дата (reset до днешна дата)
     try:
         date_entry.set_date('today')
@@ -339,7 +339,6 @@ def clear_fields():
     city_code_var.set("")
     # File labels
     file_label.config(text="Няма избран файл")
-    save_label.config(text="")
 
 
 
@@ -359,15 +358,14 @@ def mount_stay_declarations(parent):
     """Mount the styled NRA workspace while retaining the original XML workflow."""
     global date_entry, region_entry, municipality_entry, city_entry
     global region_code_var, municipality_code_var, city_code_var
-    global address_entry, number_entry, file_label, save_label
-    global selected_file, output_file_path
+    global address_entry, number_entry, file_label
+    global selected_file
     selected_file = None
-    output_file_path = None
     root = parent
     background = "#F4F7FB"
     text_color = "#172D49"
     muted = "#61718A"
-    accent = "#087F75"
+    accent = "#17365D"
     border = "#DBE4EF"
     root.configure(bg=background)
     page = tk.Frame(root, bg=background)
@@ -378,7 +376,7 @@ def mount_stay_declarations(parent):
                         justify="left", font=("Segoe UI", size, "bold" if bold else "normal"))
 
     def button(host, text, command, *, primary=False, danger=False):
-        normal = accent if primary else ("#FFF0F0" if danger else "#EAF4F2")
+        normal = accent if primary else ("#FFF0F0" if danger else "#EAF1FA")
         foreground = "white" if primary else ("#B33D45" if danger else accent)
         hover = "#06675F" if primary else ("#FFE1E3" if danger else "#D8EDE8")
         widget = tk.Button(host, text=text, command=command, bg=normal, fg=foreground,
@@ -455,37 +453,19 @@ def mount_stay_declarations(parent):
             placeholder(entry, hint)
         return entry
 
-    hero = tk.Frame(page, bg="#133B40")
-    hero.pack(fill="x", pady=(0, 16))
-    label(hero, "НАП – Декларации за престой", bg="#133B40", color="white",
-          size=20, bold=True).pack(anchor="w", padx=22, pady=(12, 6))
-    label(hero, "От входен ЕДП файл до готова XML декларация — в няколко стъпки.",
-          bg="#133B40", color="#C2DFDA", size=11).pack(anchor="w", padx=22, pady=(0, 12))
+    label(page, "НАП – Декларации за престой", bg=background,
+          size=20, bold=True).pack(anchor="w", pady=(0, 4))
+    label(page, "Заредете ЕДП XML, попълнете данните за престоя и генерирайте декларацията.",
+          bg=background, color=muted, size=10).pack(anchor="w", pady=(0, 16))
 
-    files = tk.Frame(page, bg=background)
-    files.pack(fill="x", pady=(0, 14))
-    for column in range(2):
-        files.columnconfigure(column, weight=1, uniform="files")
-    file_labels = []
-    for column, title, hint, action, command in (
-            (0, "1. Входен файл", "Изберете ЕДП XML", "Избери входен файл ЕДП", browse_file),
-            (1, "2. Изходен файл", "Изберете къде да запишете декларацията", "Избери място за запис", choose_save_location)):
-        card = tk.Frame(files, bg="white", highlightbackground=border, highlightthickness=1)
-        card.grid(row=0, column=column, sticky="nsew", padx=(0, 7) if column == 0 else (7, 0))
-        body = tk.Frame(card, bg="white")
-        body.pack(fill="both", expand=True, padx=18, pady=14)
-        toolbar = tk.Frame(body, bg="white")
-        toolbar.pack(fill="x")
-        label(toolbar, title, size=12, bold=True).pack(side="left")
-        button(toolbar, action, command).pack(side="right")
-        file_status = label(body, hint, color=muted)
-        file_status.pack(fill="x", pady=(8, 0))
-        body.bind("<Configure>", lambda event, widget=file_status:
-                  widget.configure(wraplength=max(120, event.width)))
-        file_labels.append(file_status)
-    file_label, save_label = file_labels
+    input_section = section("Входен ЕДП XML", "Изберете файла, от който ще бъде създадена декларацията.")
+    source_row = tk.Frame(input_section, bg="white")
+    source_row.pack(fill="x")
+    button(source_row, "Избери XML файл", browse_file).pack(side="left")
+    file_label = label(source_row, "Няма избран файл", color=muted)
+    file_label.pack(side="left", padx=(14, 0))
 
-    location = section("3. Място и дата на престой",
+    location = section("Място и дата на престой",
                        "Въведете име и изберете от предложенията. Административните кодове се попълват автоматично.")
     places = tk.Frame(location, bg="white")
     places.pack(fill="x")
@@ -516,11 +496,11 @@ def mount_stay_declarations(parent):
     address_entry = plain_field(address_row, 1, "Улица / местност", "Адрес")
     number_entry = plain_field(address_row, 2, "Номер", "№")
 
-    actions = tk.Frame(page, bg="#E5F5F1", highlightbackground="#CBE5DE", highlightthickness=1)
-    actions.pack(fill="x", pady=(0, 22))
-    button(actions, "Генерирай XML", generate_output, primary=True).pack(side="right", padx=16, pady=12)
-    label(actions, "Подгответе декларацията", bg="#E5F5F1", color=accent,
-          size=11, bold=True).pack(side="left", padx=18)
+    actions = tk.Frame(page, bg="white", highlightbackground=border, highlightthickness=1)
+    actions.pack(fill="x", pady=(0, 16))
+    button(actions, "Генерирай и запази XML", generate_output, primary=True).pack(side="right", padx=16, pady=12)
+    label(actions, "Изберете къде да запазите файла при генерирането.",
+          bg="white", color=muted, size=10).pack(side="left", padx=18)
 
     SAVED_ADDRESSES_PATH = saved_addresses_path()
 
